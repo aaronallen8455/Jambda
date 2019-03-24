@@ -1,5 +1,5 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-module Synth.Newtypes
+module Jambda.Newtypes
   ( Sample(..)
   , Cell(..)
   , Freq(..)

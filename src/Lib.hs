@@ -1,10 +1,11 @@
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE RankNTypes #-}
 module Lib
-  ( play
-  , sineWave
+  ( sineWave
   , linearTaper
   , test
-  , testBanana
+  , testSDL
   ) where
 
 import Control.Concurrent
@@ -18,53 +19,75 @@ import GHC.Float (double2Float, float2Double)
 import Reactive.Banana
 import Reactive.Banana.Frameworks
 
+import qualified SDL
+import qualified Data.Vector.Storable.Mutable as MV
+
 import Data.List
 
-import Synth.Newtypes (BPM(..), Cell(..), Freq(..), Sample(..), Sec(..))
-import Synth.Types
+import Jambda.Newtypes (BPM(..), Cell(..), Freq(..), Sample(..), Sec(..))
+import Jambda.Types
 
 import Debug.Trace
 
-import qualified Sound.Sox.Play as Play
-import qualified Synthesizer.Storable.Signal as SigSt
-import qualified Synthesizer.Basic.Binary as BinSmp
-import qualified Sound.Sox.Option.Format as SoxOpt
-import System.Exit (ExitCode)
 import Data.IORef
 
-buildLazySig :: IORef Bool -> IO (SigSt.T Double)
-buildLazySig switch = do
-  let source = map (float2Double . getSample) $ sineWave 440 0
-      doStuff source = do
-          quiet <- readIORef switch
-          let (chunk, rest) = splitAt 1024 source
-              chunk' | quiet = SigSt.fromList SigSt.defaultChunkSize $ map (*0.3) chunk
-                     | otherwise = SigSt.fromList SigSt.defaultChunkSize chunk
-          SigSt.append <$> pure chunk' <*> doStuff rest
-  list <- doStuff source
-  pure list
+testSDL :: BPM -> [Layer] -> IO ()
+testSDL bpm layers = do
+  layerRef <- newIORef layers
+  tempoRef <- newIORef bpm
+  SDL.initialize [SDL.InitAudio]
+  (audioDevice, audioSpec) <- SDL.openAudioDevice ( openDeviceSpec $ testCB layerRef tempoRef )
+  SDL.setAudioDevicePlaybackState audioDevice SDL.Play
 
-
-playL :: SigSt.T Double -> IO ExitCode
-playL
-  = Play.simple SigSt.hPut SoxOpt.none 44100
-  . SigSt.map BinSmp.int16FromDouble
-
-testDis :: IO ()
-testDis = do
-  switch <- newIORef False
-  sig <- buildLazySig switch
-
-  putStrLn "test"
-
-  forkIO . void $ playL sig
+  hSetEcho stdin False
   fix $ \rec -> do
-    inp <- getLine
-    case inp of
-      "x" -> do
-        modifyIORef switch not
-        rec
+    key <- getKey
+    case key of
+      "\ESC[A" -> modifyIORef tempoRef succ >> rec
+      "\ESC[B" -> modifyIORef tempoRef pred >> rec
+      "x" -> pure ()
       _ -> rec
+
+  SDL.closeAudioDevice audioDevice
+  SDL.quit
+
+openDeviceSpec :: (forall s. SDL.AudioFormat s -> MV.IOVector s -> IO ()) -> SDL.OpenDeviceSpec
+openDeviceSpec callback = SDL.OpenDeviceSpec
+  { openDeviceFreq = SDL.Mandate 44100
+    -- ^ The output audio frequency in herts.
+  , openDeviceFormat = SDL.Mandate SDL.FloatingNativeAudio
+    -- ^ The format of audio that will be sampled from the output buffer.
+  , openDeviceChannels = SDL.Mandate SDL.Stereo
+    -- ^ The amount of audio channels.
+  , openDeviceSamples = 1024
+    -- ^ Output audio buffer size in samples. This should be a power of 2.
+  , openDeviceCallback = callback
+    -- ^ A callback to invoke whenever new sample data is required. The callback
+    -- will be passed a single 'MV.MVector' that must be filled with audio data.
+  , openDeviceUsage = SDL.ForPlayback
+    -- ^ How you intend to use the opened 'AudioDevice' - either for outputting
+    -- or capturing audio.
+  , openDeviceName = Nothing
+    -- ^ The name of the 'AudioDevice' that should be opened. If 'Nothing',
+    -- any suitable 'AudioDevice' will be used.
+}
+
+testCB :: IORef [Layer] -> IORef BPM -> SDL.AudioFormat actualSampleType -> MV.IOVector actualSampleType -> IO ()
+testCB layersRef bpmRef SDL.FloatingLEAudio vec = do
+  layers <- readIORef layersRef
+  bpm <- readIORef bpmRef
+
+  let numSamples = MV.length vec `div` 2
+      (newLayers, samples) = unzip $ map (readChunk numSamples bpm) layers
+      combined = map getSample $ aggregateChunks samples
+  iforM_ combined $ \i s -> do
+    MV.write vec (i * 2) s -- Left channel
+    MV.write vec (i * 2 + 1) s -- Right channel
+
+  writeIORef layersRef newLayers
+
+testCB _ _ f vec = do
+  traceShow f pure ()
 
 testBanana :: BPM -> [Layer] -> IO ()
 testBanana bpm layers = do
@@ -78,7 +101,7 @@ testBanana bpm layers = do
         isRunning <- readIORef runRef
         when isRunning $ do
           bpm <- readIORef bpmRef
-          let (newLayers, chunks) = unzip $ map (readChunk bpm) layers
+          let (newLayers, chunks) = unzip $ map (readChunk 1000 bpm) layers
           simpleWrite s $ aggregateChunks chunks
           loop newLayers
 
@@ -111,40 +134,7 @@ handleKey "\ESC[B" = Just pred
 handleKey _ = Nothing
 
 test :: IO ()
-test = testBanana (BPM 120) [layer, layer2]
-
-play :: BPM -> [Layer] -> IO ()
-play bpm layers = do
-  s <- simpleNew Nothing "example" Play Nothing "this is an example application"
-         (SampleSpec (F32 LittleEndian) 44100 1) Nothing Nothing
-
-  runRef <- newIORef True
-  bpmRef <- newIORef bpm
-
-  let loop layers = do
-        isRunning <- readIORef runRef
-        when isRunning $ do
-          bpm <- readIORef bpmRef
-          let (newLayers, chunks) = unzip $ map (readChunk bpm) layers
-          simpleWrite s $ aggregateChunks chunks
-          loop newLayers
-
-  forkIO $ loop layers
-
-  fix $ \rec -> do
-    inp <- getKey
-    case inp of
-      "x" -> do
-        writeIORef runRef False
-        simpleDrain s
-        simpleFree s
-      "\ESC[A" -> do
-        modifyIORef bpmRef succ
-        rec
-      "\ESC[B" -> do
-        modifyIORef bpmRef pred
-        rec
-      _ -> rec
+test = testSDL (BPM 120) [layer, layer2]
 
 getKey :: IO [Char]
 getKey = reverse <$> getKey' ""
@@ -192,11 +182,8 @@ linearTaper :: Double -> [Sample] -> [Sample]
 linearTaper secs = zipWith (*) [1, 1 - step .. 0] where
   step = Sample . double2Float $ 1 / secs / sampleRate
 
-bufferSize :: Int
-bufferSize = 1000
-
-readChunk :: BPM -> Layer -> (Layer, [Sample])
-readChunk bpm layer@Layer{..}
+readChunk :: Int -> BPM -> Layer -> (Layer, [Sample])
+readChunk bufferSize bpm layer@Layer{..}
   | remLen >= bufferSize =
     (   layerSourcePrefix %~ (drop bufferSize)
       $ layerCellPrefix   -~ (numSamplesToCells bpm $ fromIntegral bufferSize)

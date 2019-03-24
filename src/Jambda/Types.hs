@@ -1,5 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
-module Synth.Types
+module Jambda.Types
   ( Layer(..)
   , layerSource
   , layerBeat
@@ -8,7 +8,7 @@ module Synth.Types
   ) where
 
 import Control.Lens (makeLenses)
-import Synth.Newtypes (Cell, Sample)
+import Jambda.Newtypes (Cell, Sample)
 
 data Layer =
   Layer

@@ -1,10 +1,10 @@
-name:                Synth
+name:                Jambda
 version:             0.1.0.0
-github:              "githubuser/Synth"
+github:              "aaronallen8455/Jambda"
 license:             BSD3
-author:              "Author name here"
-maintainer:          "example@example.com"
-copyright:           "2019 Author name here"
+author:              "Aaron Allen"
+maintainer:          "aaronallen8455@gmail.com"
+copyright:           "2019 Aaron Allen"
 
 extra-source-files:
 - README.md
@@ -23,9 +23,9 @@ dependencies:
 - base >= 4.7 && < 5
 - pulse-simple
 - lens
-- synthesizer-core
-- sox
 - reactive-banana
+- sdl2
+- vector
 
 library:
   source-dirs: src
@@ -40,7 +40,7 @@ executables:
     - -Werror
     - -with-rtsopts=-N
     dependencies:
-    - Synth
+    - Jambda
 
 tests:
   Synth-test:
@@ -51,4 +51,4 @@ tests:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
-    - Synth
+    - Jambda

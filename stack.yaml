@@ -42,6 +42,7 @@ extra-deps:
 - numeric-quest-0.2.0.2@sha256:07a766138ca21232690d27c3d3860ff51fc1ad8418ae824518d603a7f807a2a0
 - pulse-simple-0.1.14@sha256:cd2397c40feb8959cdc6e806987072ce91e388e41427c47ff09ec2a2cfb466f0
 - reactive-banana-1.2.1.0@sha256:af0a41dec95e1478acd5280f0fdde51afddf9fbfa4e0a4c226a2c6fa65702796
+
 # Override default flag values for local packages and extra-deps
 # flags: {}
 
