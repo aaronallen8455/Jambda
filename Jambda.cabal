@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 9e339e989b42f4fcd05058e9e8d411e0e5c7d535dcce157ecc0befde290c1c32
+-- hash: 1841d9cb77ad45ed7e46ff6b33dedb8ed91c8efcfb0c0375cd00596f8f1bac5f
 
 name:           Jambda
 version:        0.1.0.0
@@ -28,6 +28,7 @@ source-repository head
 library
   exposed-modules:
       Jambda.Newtypes
+      Jambda.Parsers
       Jambda.Types
       Lib
   other-modules:
@@ -36,11 +37,15 @@ library
       src
   build-depends:
       base >=4.7 && <5
+    , brick
     , lens
-    , pulse-simple
+    , megaparsec
+    , mtl
     , reactive-banana
     , sdl2
+    , transformers
     , vector
+    , vty
   default-language: Haskell2010
 
 executable Synth-exe
@@ -53,11 +58,15 @@ executable Synth-exe
   build-depends:
       Jambda
     , base >=4.7 && <5
+    , brick
     , lens
-    , pulse-simple
+    , megaparsec
+    , mtl
     , reactive-banana
     , sdl2
+    , transformers
     , vector
+    , vty
   default-language: Haskell2010
 
 test-suite Synth-test
@@ -71,9 +80,13 @@ test-suite Synth-test
   build-depends:
       Jambda
     , base >=4.7 && <5
+    , brick
     , lens
-    , pulse-simple
+    , megaparsec
+    , mtl
     , reactive-banana
     , sdl2
+    , transformers
     , vector
+    , vty
   default-language: Haskell2010

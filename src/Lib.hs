@@ -6,6 +6,7 @@ module Lib
   , linearTaper
   , test
   , testSDL
+  , brickTest
   ) where
 
 import Control.Concurrent
@@ -13,7 +14,6 @@ import Control.Lens
 import Control.Monad (when, void, forever)
 import Data.Function (fix)
 import Data.IORef
-import Sound.Pulse.Simple
 import System.IO (hReady, hSetEcho, stdin)
 import GHC.Float (double2Float, float2Double)
 import Reactive.Banana
@@ -21,6 +21,10 @@ import Reactive.Banana.Frameworks
 
 import qualified SDL
 import qualified Data.Vector.Storable.Mutable as MV
+import qualified Brick as Brick
+import qualified Brick.Widgets.Edit as Edit
+import qualified Brick.Focus as Focus
+import qualified Graphics.Vty as Vty
 
 import Data.List
 
@@ -70,7 +74,7 @@ openDeviceSpec callback = SDL.OpenDeviceSpec
   , openDeviceName = Nothing
     -- ^ The name of the 'AudioDevice' that should be opened. If 'Nothing',
     -- any suitable 'AudioDevice' will be used.
-}
+  }
 
 testCB :: IORef [Layer] -> IORef BPM -> SDL.AudioFormat actualSampleType -> MV.IOVector actualSampleType -> IO ()
 testCB layersRef bpmRef SDL.FloatingLEAudio vec = do
@@ -89,52 +93,61 @@ testCB layersRef bpmRef SDL.FloatingLEAudio vec = do
 testCB _ _ f vec = do
   traceShow f pure ()
 
-testBanana :: BPM -> [Layer] -> IO ()
-testBanana bpm layers = do
-  s <- simpleNew Nothing "example" Play Nothing "this is an example application"
-         (SampleSpec (F32 LittleEndian) 44100 1) Nothing Nothing
-
-  runRef <- newIORef True
-  bpmRef <- newIORef bpm
-
-  let loop layers = do
-        isRunning <- readIORef runRef
-        when isRunning $ do
-          bpm <- readIORef bpmRef
-          let (newLayers, chunks) = unzip $ map (readChunk 1000 bpm) layers
-          simpleWrite s $ aggregateChunks chunks
-          loop newLayers
-
-  forkIO $ loop layers
-
-  (addKeyEvent, fireKey) <- newAddHandler
-
-  let makeNetwork = do
-        eKey <- fromAddHandler addKeyEvent
-        let eTempo = filterJust $ handleKey <$> eKey
-            eStop  = filterE id $ (== "x") <$> eKey
-
-        reactimate $ modifyIORef bpmRef <$> eTempo
-        reactimate $ finalizer <$ eStop
-
-      finalizer = do
-        writeIORef runRef False
-        simpleDrain s
-        simpleFree s
-
-  network <- compile makeNetwork
-  actuate network
-
-  hSetEcho stdin False
-  forever $ getKey >>= fireKey
-
-handleKey :: Enum a => String -> Maybe (a -> a)
-handleKey "\ESC[A" = Just succ
-handleKey "\ESC[B" = Just pred
-handleKey _ = Nothing
-
 test :: IO ()
 test = testSDL (BPM 120) [layer, layer2]
+
+brickTest :: IO ()
+brickTest = do
+  let layers = [layer, layer2]
+      tempo = 120
+  layerRef <- newIORef layers
+  tempoRef <- newIORef tempo
+  volumeRef <- newIORef 1
+
+  let app :: Brick.App JambdaState e Name
+      app = Brick.App { appDraw = drawUI
+                      , appChooseCursor = Focus.focusRingCursor (^.jambdaStateFocus)
+                      , appHandleEvent = eventHandler
+                      , appStartEvent = pure
+                      , appAttrMap = const $ Brick.attrMap Vty.defAttr []
+                      }
+
+      mkLayerField i layer = Edit.editor ( LayerName i ) (Just 1 ) (layer^.layerDisplay)
+
+      initState = JambdaState { _jambdaStateLayersRef = layerRef
+                              , _jambdaStateTempoRef = tempoRef
+                              , _jambdaStateVolumeRef = volumeRef
+                              , _jambdaStateTempoField = Edit.editor TempoName ( Just 1 ) ( show $ getBPM tempo )
+                              , _jambdaStateLayerFields = imap mkLayerField layers
+                              , _jambdaStateFocus = Focus.focusRing (map LayerName [0 .. length layers - 1] ++ [TempoName])
+                              }
+
+  finalState <- Brick.defaultMain app initState :: IO JambdaState
+  pure ()
+
+drawUI :: JambdaState -> [Brick.Widget Name]
+drawUI st = [ui] where
+  layerEditors = map drawEditor $ st^.jambdaStateLayerFields
+  drawEditor f = Focus.withFocusRing (st^.jambdaStateFocus) (Edit.renderEditor (Brick.str . unlines)) f
+  tempoField = drawEditor $ st^.jambdaStateTempoField
+  ui = foldr (Brick.<=>) tempoField layerEditors
+
+eventHandler :: JambdaState -> Brick.BrickEvent Name e -> Brick.EventM Name ( Brick.Next JambdaState )
+eventHandler st (Brick.VtyEvent ev) =
+  case ev of
+    Vty.EvKey (Vty.KChar '`') [] -> Brick.halt st
+    Vty.EvKey (Vty.KChar '\t') [] -> Brick.continue $ st & jambdaStateFocus %~ Focus.focusNext
+    Vty.EvKey Vty.KBackTab [] -> Brick.continue $ st & jambdaStateFocus %~ Focus.focusPrev
+
+    _ -> Brick.continue =<< case Focus.focusGetCurrent ( st^.jambdaStateFocus ) of
+                              Just TempoName -> Brick.handleEventLensed st jambdaStateTempoField Edit.handleEditorEvent ev
+                              Just (LayerName n) -> Brick.handleEventLensed st (jambdaStateLayerFields . unsafeIx n) Edit.handleEditorEvent ev
+                              Nothing -> pure st
+
+unsafeIx :: Int -> Lens' [a] a
+unsafeIx n afb s = fmap setAt . afb $ s !! n where
+  setAt a = b ++ a : rest
+  (b, _: rest) = splitAt n s
 
 getKey :: IO [Char]
 getKey = reverse <$> getKey' ""
@@ -148,6 +161,7 @@ layer =
   Layer
     { _layerSource = linearTaper 0.2 $ sineWave 440 0
     , _layerBeat = cycle $ [1, 1/3]
+    , _layerDisplay = "1, 1/3"
     , _layerCellPrefix = 0
     , _layerSourcePrefix = []
     }
@@ -157,6 +171,7 @@ layer2 =
   Layer
     { _layerSource = linearTaper 0.2 $ sineWave 550 0
     , _layerBeat = cycle $ [1, 0.5, 0.5]
+    , _layerDisplay = "1, .5, .5"
     , _layerCellPrefix = 0
     , _layerSourcePrefix = []
     }

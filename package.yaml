@@ -21,11 +21,15 @@ description:         Please see the README on GitHub at <https://github.com/gith
 
 dependencies:
 - base >= 4.7 && < 5
-- pulse-simple
+- brick
 - lens
+- megaparsec
 - reactive-banana
 - sdl2
 - vector
+- vty
+- mtl
+- transformers
 
 library:
   source-dirs: src

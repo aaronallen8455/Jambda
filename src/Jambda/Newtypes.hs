@@ -11,7 +11,9 @@ import Foreign.Storable (Storable)
 
 newtype Sample = Sample { getSample :: Float } deriving (Show, Eq, Num, Ord, Storable, Enum)
 
-newtype Cell = Cell { getCell :: Double } deriving (Show, Eq, Num, Ord, Fractional)
+newtype Cell = Cell { getCell :: Double } deriving (Eq, Num, Ord, Fractional)
+instance Show Cell where
+  show (Cell c) = show c
 
 newtype Freq = Freq { getFreq :: Double } deriving (Show, Eq, Ord, Num)
 

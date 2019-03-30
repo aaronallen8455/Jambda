@@ -5,4 +5,4 @@ import Control.Monad (void)
 import Lib
 
 main :: IO ()
-main = test
+main = brickTest
