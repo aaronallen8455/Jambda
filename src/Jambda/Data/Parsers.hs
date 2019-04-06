@@ -1,27 +1,30 @@
-module Jambda.Parsers
+module Jambda.Data.Parsers
   ( parseBeat
   , parseBpm
-  , expressionP
-  , doubleP
-  , beatP
+  , parseCell
   ) where
+
+import Data.Functor (($>))
 
 import Control.Lens
 import Control.Monad (guard)
-import Control.Monad.Trans.State
 import Control.Monad.Trans (lift)
+import Control.Monad.Trans.State
 import Data.Foldable (for_)
 import Data.Void (Void)
 import GHC.Exts (IsList(..))
 import Text.Megaparsec
 import Text.Megaparsec.Char
-import Jambda.Types (Layer(..))
-import Jambda.Newtypes (BPM(..), Cell(..))
+
+import Jambda.Types
 
 type Parser = Parsec Void String
 
 parseBeat :: String -> Maybe [Cell]
 parseBeat = parseMaybe beatP
+
+parseCell :: String -> Maybe Cell
+parseCell = parseMaybe cellP
 
 parseBpm :: String -> Maybe BPM
 parseBpm = parseMaybe bpmP
@@ -34,9 +37,9 @@ bpmP = do
 
 doubleP :: Parser Double
 doubleP = do
-  n <- try (char '-') *> pure negate <|> pure id
+  n <- try ( char '-' ) *> pure negate <|> pure id
   w <- many digitChar
-  d <- withRecovery (const $ pure "0") ( char '.' *> some digitChar )
+  d <- maybe "0" id <$> optional ( char '.' *> some digitChar )
   pure . n . read $ w ++ '.' : d
 
 data Operator
@@ -46,10 +49,10 @@ data Operator
   | Div
 
 operatorP :: Parser Operator
-operatorP = char '+' *> pure Add
-        <|> char '-' *> pure Sub
-        <|> char '*' *> pure Mul
-        <|> char '/' *> pure Div
+operatorP = char '+' $> Add
+        <|> char '-' $> Sub
+        <|> char '*' $> Mul
+        <|> char '/' $> Div
 
 expressionP :: Parser Double
 expressionP = fmap ( uncurry (+) )
@@ -63,7 +66,6 @@ expressionP = fmap ( uncurry (+) )
   let add n = do p  <- use _2
                  _1 += p
                  _2 .= n
-
       mult n = _2 *= n
 
   for_ terms $ \( operator, num ) ->
@@ -72,11 +74,14 @@ expressionP = fmap ( uncurry (+) )
       Sub -> add $ negate num
       Mul -> mult num
       Div -> if num == 0
-                then failure (Just . Tokens $ fromList "divide by 0") mempty
+                then failure ( Just . Tokens $ fromList "divide by 0" ) mempty
                 else mult ( 1 / num )
 
 cellP :: Parser Cell
-cellP = Cell <$> expressionP
+cellP = do
+  v <- expressionP
+  guard $ v > 0
+  pure $ Cell v
 
 beatP :: Parser [Cell]
 beatP = space *> cellP `sepBy` ( char ',' <* space )

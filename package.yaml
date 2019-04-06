@@ -30,6 +30,7 @@ dependencies:
 - vty
 - mtl
 - transformers
+- text-zipper
 
 library:
   source-dirs: src

@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 1841d9cb77ad45ed7e46ff6b33dedb8ed91c8efcfb0c0375cd00596f8f1bac5f
+-- hash: d722b6165fed1d8aef97dfbac0886611b7e5615068e7458ae20cd6197748772e
 
 name:           Jambda
 version:        0.1.0.0
@@ -27,9 +27,18 @@ source-repository head
 
 library
   exposed-modules:
-      Jambda.Newtypes
-      Jambda.Parsers
+      Jambda.Data
+      Jambda.Data.Audio
+      Jambda.Data.Parsers
       Jambda.Types
+      Jambda.Types.JamState
+      Jambda.Types.Layer
+      Jambda.Types.Newtypes
+      Jambda.Types.Semaphore
+      Jambda.UI
+      Jambda.UI.Draw
+      Jambda.UI.Events
+      Jambda.UI.Layer
       Lib
   other-modules:
       Paths_Jambda
@@ -43,6 +52,7 @@ library
     , mtl
     , reactive-banana
     , sdl2
+    , text-zipper
     , transformers
     , vector
     , vty
@@ -64,6 +74,7 @@ executable Synth-exe
     , mtl
     , reactive-banana
     , sdl2
+    , text-zipper
     , transformers
     , vector
     , vty
@@ -86,6 +97,7 @@ test-suite Synth-test
     , mtl
     , reactive-banana
     , sdl2
+    , text-zipper
     , transformers
     , vector
     , vty
