@@ -30,7 +30,7 @@ import Data.List
 
 import Jambda.Types
 import Jambda.Data (aggregateChunks, audioCallback, linearTaper, readChunk, sineWave)
-import Jambda.UI (drawUI, eventHandler)
+import Jambda.UI (drawUI, eventHandler, mkLayerWidget)
 
 import Debug.Trace
 
@@ -127,14 +127,15 @@ brickTest = do
                       , appAttrMap = const $ Brick.attrMap Vty.defAttr []
                       }
 
-      mkLayerField i layer = Edit.editor ( LayerName i ) (Just 1 ) (layer^.layerCode)
-
       initState = JamState { _jamStLayersRef = layerRef
                            , _jamStTempoRef = tempoRef
                            , _jamStVolumeRef = volumeRef
                            , _jamStTempoField = Edit.editor TempoName ( Just 1 ) ( show $ getBPM tempo )
-                           , _jamStLayerFields = imap mkLayerField layers
-                           , _jamStFocus = Focus.focusRing (map LayerName [0 .. length layers - 1] ++ [TempoName])
+                           , _jamStLayerWidgets = imap mkLayerWidget layers
+                           , _jamStFocus = Focus.focusRing ( ( LayerName <$> [ 0 .. length layers - 1 ]
+                                                                         <*> [ BeatCodeName, OffsetName, NoteName ]
+                                                             ) ++ [ TempoName ]
+                                                           )
                            , _jamStElapsedCells = elapsedCellRef
                            , _jamStSemaphore = semaphore
                            , _jamStStartPlayback = startPlayback
@@ -160,6 +161,7 @@ layer :: Layer
 layer =
   Layer
     { _layerSource = linearTaper 0.2 $ sineWave 440 0
+    , _layerSourceType = Pitch ANat 4
     , _layerBeat = cycle $ [1, 1/3]
     , _layerCode = "1, 1/3"
     , _layerParsedCode = [1, 1/3]
@@ -173,6 +175,7 @@ layer2 :: Layer
 layer2 =
   Layer
     { _layerSource = linearTaper 0.2 $ sineWave 550 0
+    , _layerSourceType = Pitch DFlat 4
     , _layerBeat = cycle $ [1, 0.5, 0.5]
     , _layerCode = "1, .5, .5"
     , _layerParsedCode = [1, 0.5, 0.5]

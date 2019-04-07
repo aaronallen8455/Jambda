@@ -15,7 +15,7 @@ import qualified  Graphics.Vty as Vty
 import qualified  Data.Text.Zipper as TextZipper
 
 import            Jambda.Types
-import            Jambda.UI.Layer (modifyBeat, resetLayer)
+import            Jambda.UI.Layer (handleLayerWidgetEvent, modifyBeat, modifyOffset, modifySource, resetLayer)
 
 import Debug.Trace
 
@@ -23,7 +23,7 @@ eventHandler :: JamState -> Brick.BrickEvent Name e -> Brick.EventM Name ( Brick
 eventHandler st (Brick.MouseDown n _ _ _) =
   case n of
     TempoName   -> Brick.continue $ st & jamStFocus %~ Focus.focusSetCurrent TempoName
-    LayerName i -> Brick.continue $ st & jamStFocus %~ Focus.focusSetCurrent ( LayerName i )
+    LayerName i f -> Brick.continue $ st & jamStFocus %~ Focus.focusSetCurrent ( LayerName i f )
     PlayName -> do
       void . liftIO $ st^.jamStStartPlayback
       Brick.continue st
@@ -57,10 +57,11 @@ eventHandler st (Brick.VtyEvent ev) =
           Brick.continue st'
         _ -> Brick.continue st
 
+    -- TODO factor this out
     Vty.EvKey Vty.KEnter [] ->
       case Focus.focusGetCurrent ( st^.jamStFocus ) of
-        Just (LayerName i) -> do
-          let mbBeatCode = concat . Edit.getEditContents <$> st ^? jamStLayerFields.ix i
+        Just (LayerName i BeatCodeName) -> do
+          let mbBeatCode = concat . Edit.getEditContents <$> st ^? jamStLayerWidgets.ix i . layerWidgetCodeField
 
           liftIO . signalSemaphore ( st^.jamStSemaphore ) $ do
             elapsedCells <- liftIO $ readIORef ( st^.jamStElapsedCells )
@@ -71,12 +72,37 @@ eventHandler st (Brick.VtyEvent ev) =
                                             <*> layers ^? ix i
                             in maybe layers (\x -> layers & ix i .~ x) mbLayer
           Brick.continue st
+        Just (LayerName i OffsetName) -> do
+          let mbOffsetCode = concat . Edit.getEditContents <$> st ^? jamStLayerWidgets.ix i . layerWidgetOffsetField
+
+          liftIO . signalSemaphore ( st^.jamStSemaphore ) $ do
+            elapsedCells <- liftIO $ readIORef ( st^.jamStElapsedCells )
+
+            modifyIORef' ( st^.jamStLayersRef )
+              $ \layers -> let mbLayer = join $ modifyOffset elapsedCells
+                                            <$> mbOffsetCode
+                                            <*> layers ^? ix i
+                            in maybe layers (\x -> layers & ix i .~ x) mbLayer
+          Brick.continue st
+
+        Just (LayerName i NoteName) -> do
+          let mbNoteStr = concat . Edit.getEditContents <$> st ^? jamStLayerWidgets.ix i . layerWidgetSourceField
+
+          liftIO . modifyIORef' ( st^.jamStLayersRef )
+            $ \layers -> let mbLayer = join $ modifySource
+                                          <$> mbNoteStr
+                                          <*> layers ^? ix i
+                          in maybe layers (\x -> layers & ix i .~ x) mbLayer
+
+          Brick.continue st
+
         _ -> Brick.continue st
 
     _ -> Brick.continue =<< case Focus.focusGetCurrent ( st^.jamStFocus ) of
                               Just TempoName -> Brick.handleEventLensed st jamStTempoField Edit.handleEditorEvent ev
-                              Just (LayerName n) -> Brick.handleEventLensed st (jamStLayerFields . unsafeIx n) Edit.handleEditorEvent ev
+                              Just (LayerName n field) -> Brick.handleEventLensed st (jamStLayerWidgets . unsafeIx n) (handleLayerWidgetEvent field) ev
                               Nothing -> pure st
+                              _ -> pure st
 eventHandler st _ = Brick.continue st
 
 unsafeIx :: Int -> Lens' [a] a

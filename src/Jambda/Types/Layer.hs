@@ -2,7 +2,8 @@
 module Jambda.Types.Layer where
 
 import Control.Lens
-import Jambda.Types.Newtypes (Cell, Sample)
+import Jambda.Types.Newtypes (Cell, Sample, Octave)
+import Jambda.Types.Pitch (Pitch)
 
 data Layer =
   Layer
@@ -14,7 +15,7 @@ data Layer =
     , _layerOffsetCode :: !String     -- ^ Code of the offset amount
     , _layerCellPrefix :: !Cell       -- ^ Cell value before next note
     , _layerSourcePrefix :: ![Sample] -- ^ Tail of a partially played source
+    , _layerSourceType :: !Pitch       -- ^ The sound representation to use
     }
 
 makeLenses ''Layer
-

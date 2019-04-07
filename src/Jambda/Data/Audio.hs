@@ -8,6 +8,7 @@ module Jambda.Data.Audio
   , silence
   , linearTaper
   , readChunk
+  , pitchToFreq
   ) where
 
 import Data.List (transpose)
@@ -92,8 +93,8 @@ readChunk bufferSize bpm layer@Layer{..}
                                         (bufferSize - numPrefixSamples)
     samples = prefixSamples ++ newSamples
 
--- TODO give this a cell value instead of number of samples?
 -- | Pull the specified number of samples from a layer.
+-- returns the samples and the modified layer.
 getSamples :: BPM -> Layer -> [Cell] -> Int -> (Layer, [Sample])
 getSamples _ layer [] _ = (layer, [])
 getSamples bpm layer (c:cells) nsamps
@@ -106,14 +107,14 @@ getSamples bpm layer (c:cells) nsamps
   where
     source = layer^.layerSource
     ( wholeCellSamps, leftover ) = numSamplesForCell bpm c
-    cellSamps = fromIntegral wholeCellSamps + leftover
     diff = wholeCellSamps - nsamps
     newCellPrefix = c - numSamplesToCells bpm (fromIntegral nsamps) + leftover
-    newLayer = layerBeat         .~ cells
-             $ layerCellPrefix   .~ newCellPrefix
-             $ layerSourcePrefix .~ (drop nsamps source)
-             $ layer
+    newLayer = layer & layerBeat         .~ cells
+                     & layerCellPrefix   .~ newCellPrefix
+                     & layerSourcePrefix .~ (drop nsamps source)
 
+-- | Get the number of whole samples from a cell value and also
+-- return the cell value corresponding to the leftover fractional sample
 numSamplesForCell :: BPM -> Cell -> (Int, Cell)
 numSamplesForCell bpm cell = (wholeSamps, remCell) where
   samples = secToNumSamps $ cellToSecs bpm cell
@@ -136,5 +137,3 @@ numSampsToSecs nsamps = Sec $
 
 secToNumSamps :: Sec -> Double
 secToNumSamps (Sec sec) = sec * sampleRate
-
-

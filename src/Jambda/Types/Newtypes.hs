@@ -5,6 +5,7 @@ module Jambda.Types.Newtypes
   , Freq(..)
   , BPM(..)
   , Sec(..)
+  , Octave(..)
   , bpmToString
   ) where
 
@@ -25,3 +26,5 @@ bpmToString :: BPM -> String
 bpmToString (BPM x) = printf "%.1f" x
 
 newtype Sec = Sec { getSec :: Double } deriving (Show, Eq, Ord, Num)
+
+newtype Octave = Octave { getOctave :: Int } deriving (Show, Eq, Ord, Num)

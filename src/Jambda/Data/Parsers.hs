@@ -2,6 +2,7 @@ module Jambda.Data.Parsers
   ( parseBeat
   , parseBpm
   , parseCell
+  , parsePitch
   ) where
 
 import Data.Functor (($>))
@@ -28,6 +29,9 @@ parseCell = parseMaybe cellP
 
 parseBpm :: String -> Maybe BPM
 parseBpm = parseMaybe bpmP
+
+parsePitch :: String -> Maybe Pitch
+parsePitch = parseMaybe pitchP
 
 bpmP :: Parser BPM
 bpmP = do
@@ -84,5 +88,27 @@ cellP = do
   pure $ Cell v
 
 beatP :: Parser [Cell]
-beatP = space *> cellP `sepBy` ( char ',' <* space )
+beatP = space *> cellP `sepBy` ( char ',' <* space ) <* eof
 
+pitchP :: Parser Pitch
+pitchP = try ( Pitch <$> (ANat  <$ string' "A") <*> octaveP )
+     <|> try ( Pitch <$> (BFlat <$ (string' "Bb" <|> string' "A#") ) <*> octaveP )
+     <|> try ( Pitch <$> (BNat  <$ (string' "B" <|> string' "Cb") ) <*> octaveP )
+     <|> try ( Pitch <$> (CNat  <$ (string' "C" <|> string' "B#") ) <*> octaveP )
+     <|> try ( Pitch <$> (DFlat <$ (string' "C#" <|> string' "Db") ) <*> octaveP )
+     <|> try ( Pitch <$> (DNat  <$ (string' "D") ) <*> octaveP )
+     <|> try ( Pitch <$> (EFlat <$ (string' "Eb" <|> string' "D#") ) <*> octaveP )
+     <|> try ( Pitch <$> (ENat  <$ (string' "E" <|> string' "Fb") ) <*> octaveP )
+     <|> try ( Pitch <$> (FNat  <$ (string' "F" <|> string' "E#") ) <*> octaveP )
+     <|> try ( Pitch <$> (GFlat <$ (string' "F#" <|> string' "Gb") ) <*> octaveP )
+     <|> try ( Pitch <$> (GNat  <$ (string' "G") ) <*> octaveP )
+     <|>     ( Pitch <$> (AFlat <$ (string' "G#" <|> string' "Ab") ) <*> octaveP )
+
+octaveP :: Parser Octave
+octaveP = do
+  n <- intP
+  guard $ n > 0 && n <= 12
+  pure $ Octave n
+
+intP :: Parser Int
+intP = read <$> some digitChar
