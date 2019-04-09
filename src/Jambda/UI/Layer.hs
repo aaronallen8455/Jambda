@@ -15,7 +15,7 @@ module Jambda.UI.Layer
 import Control.Lens
 import Control.Monad (guard)
 
-import            Brick ((<+>), EventM, Padding(Pad), Widget, clickable, hLimitPercent, handleEventLensed, joinBorders, padAll, padTop, str, withBorderStyle)
+import            Brick ((<+>), (<=>), EventM, Padding(Pad), Widget, clickable, hLimitPercent, handleEventLensed, joinBorders, padAll, padTop, str, withBorderStyle)
 import qualified  Brick.Widgets.Edit as E
 import qualified  Brick.Focus as Focus
 import qualified  Brick.Widgets.Edit as Edit
@@ -26,6 +26,10 @@ import            Graphics.Vty.Input.Events (Event)
 import Jambda.Types
 import Jambda.Data (linearTaper, parseBeat, parseCell, parsePitch, silence, sineWave)
 
+mkButton :: String -> Widget Name
+mkButton label =
+  withBorderStyle Border.unicodeBold . Border.border $ str label
+
 mkLayerWidget :: Int -> Layer -> LayerWidget Name
 mkLayerWidget index layer =
   LayerWidget
@@ -33,7 +37,7 @@ mkLayerWidget index layer =
     , _layerWidgetCodeField = E.editor ( LayerName index BeatCodeName ) ( Just 1 ) ( layer^.layerCode )
     , _layerWidgetOffsetField = E.editor ( LayerName index OffsetName ) ( Just 1 ) ( layer^.layerOffsetCode )
     , _layerWidgetSourceField = E.editor ( LayerName index NoteName ) ( Just 1 ) ( show $ layer^.layerSourceType )
-    , _layerWidgetDelete = clickable ( LayerName index DeleteName ) . padAll 1 $ str "❌"
+    , _layerWidgetDelete = clickable ( LayerName index DeleteName ) . padAll 1 $ str "[-X-]"
     }
 
 renderLayerWidget :: JamState -> LayerWidget Name -> Widget Name

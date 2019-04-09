@@ -8,6 +8,7 @@ import            Control.Monad.IO.Class
 import            Data.IORef
 
 import            Control.Lens
+import qualified  Data.CircularList as CList
 import qualified  Brick as Brick
 import qualified  Brick.Widgets.Edit as Edit
 import qualified  Brick.Focus as Focus
@@ -23,6 +24,17 @@ eventHandler :: JamState -> Brick.BrickEvent Name e -> Brick.EventM Name ( Brick
 eventHandler st (Brick.MouseDown n _ _ _) =
   case n of
     TempoName   -> Brick.continue $ st & jamStFocus %~ Focus.focusSetCurrent TempoName
+    LayerName i DeleteName -> do
+      liftIO $ modifyIORef ( st^.jamStLayersRef )
+                           ( toListOf $ folded . ifiltered (\ind _ -> ind /= i) )
+
+-- TODO need to reindex the layer names
+      let nameFilter (LayerName li _) | li == i = False
+          nameFilter _ = True
+          st' = st & jamStFocus %~ ( Focus.focusRingModify ( CList.filterR nameFilter ) )
+                   & jamStLayerWidgets %~ toListOf ( folded . ifiltered ( \ind _ -> ind /= i ) )
+
+      Brick.continue st'
     LayerName i f -> Brick.continue $ st & jamStFocus %~ Focus.focusSetCurrent ( LayerName i f )
     PlayName -> do
       void . liftIO $ st^.jamStStartPlayback
