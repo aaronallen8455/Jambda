@@ -3,7 +3,9 @@ module Jambda.UI.Draw
   ( drawUI
   ) where
 
+import qualified  Data.IntMap as Map
 import            Control.Lens
+
 import            Brick
 import qualified  Brick.Widgets.Edit as Edit
 import qualified  Brick.Widgets.Border as Border
@@ -15,8 +17,8 @@ import Jambda.UI.Layer (renderLayerWidget)
 
 drawUI :: JamState -> [Widget Name]
 drawUI st = [ui] where
-  layerEditors = renderLayerWidget st <$> st^.jamStLayerWidgets
-  layerUI      = foldr (<=>) emptyWidget layerEditors
+  layerEditors       = map ( uncurry $ renderLayerWidget st ) . zip [0..] $ Map.elems ( st^.jamStLayerWidgets )
+  layerUI            = foldr (<=>) emptyWidget layerEditors
   drawEditor label f = withBorderStyle Border.unicode
                      . Border.borderWithLabel ( str label )
                      $ Focus.withFocusRing (st^.jamStFocus)

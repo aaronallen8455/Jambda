@@ -7,7 +7,7 @@ import            Brick (Widget)
 import qualified  Brick.Widgets.Edit as E
 
 data LayerWidget n = LayerWidget
-  { _layerWidgetIndex :: !Int
+  { _layerWidgetId :: !Int
   , _layerWidgetCodeField :: !(E.Editor String n)
   , _layerWidgetOffsetField :: !(E.Editor String n)
   , _layerWidgetSourceField :: !(E.Editor String n)

@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 5f4113155a14d27d4f0a53b9051f006d5d196fb2927cd6e28d5824b2ac06b514
+-- hash: 911993382e51412185f5fd1d7781c737bd73287f3e62866f631077097a305d26
 
 name:           Jambda
 version:        0.1.0.0
@@ -25,8 +25,9 @@ source-repository head
   type: git
   location: https://github.com/aaronallen8455/Jambda
 
-library
-  exposed-modules:
+executable Jambda-exe
+  main-is: Main.hs
+  other-modules:
       Jambda.Data
       Jambda.Data.Audio
       Jambda.Data.Constants
@@ -45,11 +46,10 @@ library
       Jambda.UI.Draw
       Jambda.UI.Events
       Jambda.UI.Layer
-      Lib
-  other-modules:
       Paths_Jambda
   hs-source-dirs:
       src
+  ghc-options: -threaded -rtsopts -Werror -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
     , brick
@@ -58,31 +58,6 @@ library
     , lens
     , megaparsec
     , mtl
-    , reactive-banana
-    , sdl2
-    , text-zipper
-    , transformers
-    , vector
-    , vty
-  default-language: Haskell2010
-
-executable Synth-exe
-  main-is: Main.hs
-  other-modules:
-      Paths_Jambda
-  hs-source-dirs:
-      app
-  ghc-options: -threaded -rtsopts -Werror -with-rtsopts=-N
-  build-depends:
-      Jambda
-    , base >=4.7 && <5
-    , brick
-    , containers
-    , data-clist
-    , lens
-    , megaparsec
-    , mtl
-    , reactive-banana
     , sdl2
     , text-zipper
     , transformers
@@ -99,15 +74,13 @@ test-suite Synth-test
       test
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      Jambda
-    , base >=4.7 && <5
+      base >=4.7 && <5
     , brick
     , containers
     , data-clist
     , lens
     , megaparsec
     , mtl
-    , reactive-banana
     , sdl2
     , text-zipper
     , transformers

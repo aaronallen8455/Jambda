@@ -40,11 +40,11 @@ bpmP = do
   pure $ BPM v
 
 doubleP :: Parser Double
-doubleP = do
-  n <- try ( char '-' ) *> pure negate <|> pure id
-  w <- many digitChar
-  d <- maybe "0" id <$> optional ( char '.' *> some digitChar )
-  pure . n . read $ w ++ '.' : d
+doubleP = read <$> ( try numP <|> try mixP <|> fmap ('0':) fracP )
+  where
+    numP  = some digitChar
+    mixP  = (++) <$> numP <*> fracP
+    fracP = (:) <$> char '.' <*> numP
 
 data Operator
   = Add

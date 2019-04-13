@@ -1,1 +1,3 @@
-# Synth
+# Jambda
+
+Requires SDL

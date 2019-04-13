@@ -99,7 +99,7 @@ eventHandler st (Brick.VtyEvent ev) =
           let mbBeatCode = concat . Edit.getEditContents <$> st ^? jamStLayerWidgets.ix i . layerWidgetCodeField
 
           liftIO . signalSemaphore ( st^.jamStSemaphore ) $ do
-            elapsedCells <- liftIO $ readIORef ( st^.jamStElapsedCells )
+            elapsedCells <- readIORef ( st^.jamStElapsedCells )
 
             modifyIORef' ( st^.jamStLayersRef )
               $ \layers -> let mbLayer = join $ modifyBeat elapsedCells

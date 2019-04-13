@@ -27,27 +27,21 @@ dependencies:
 - lens
 - megaparsec
 - mtl
-- reactive-banana
 - sdl2
 - text-zipper
 - transformers
 - vector
 - vty
 
-library:
-  source-dirs: src
-
 executables:
-  Synth-exe:
+  Jambda-exe:
     main:                Main.hs
-    source-dirs:         app
+    source-dirs:         src
     ghc-options:
     - -threaded
     - -rtsopts
     - -Werror
     - -with-rtsopts=-N
-    dependencies:
-    - Jambda
 
 tests:
   Synth-test:
@@ -57,5 +51,3 @@ tests:
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N
-    dependencies:
-    - Jambda

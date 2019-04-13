@@ -26,19 +26,19 @@ mkButton label =
   withBorderStyle Border.unicodeBold . Border.border $ str label
 
 mkLayerWidget :: Int -> Layer -> LayerWidget Name
-mkLayerWidget index layer =
+mkLayerWidget id' layer =
   LayerWidget
-    { _layerWidgetIndex = index
-    , _layerWidgetCodeField = E.editor ( LayerName index BeatCodeName ) ( Just 1 ) ( layer^.layerCode )
-    , _layerWidgetOffsetField = E.editor ( LayerName index OffsetName ) ( Just 1 ) ( layer^.layerOffsetCode )
-    , _layerWidgetSourceField = E.editor ( LayerName index NoteName ) ( Just 1 ) ( show $ layer^.layerSourceType )
-    , _layerWidgetDelete = clickable ( LayerName index DeleteName ) . padAll 1 $ str "[-X-]"
+    { _layerWidgetId = id'
+    , _layerWidgetCodeField = E.editor ( LayerName id' BeatCodeName ) ( Just 1 ) ( layer^.layerCode )
+    , _layerWidgetOffsetField = E.editor ( LayerName id' OffsetName ) ( Just 1 ) ( layer^.layerOffsetCode )
+    , _layerWidgetSourceField = E.editor ( LayerName id' NoteName ) ( Just 1 ) ( show $ layer^.layerSourceType )
+    , _layerWidgetDelete = clickable ( LayerName id' DeleteName ) . padAll 1 $ str "[-X-]"
     }
 
-renderLayerWidget :: JamState -> LayerWidget Name -> Widget Name
-renderLayerWidget st LayerWidget{..} = joinBorders
+renderLayerWidget :: JamState -> Int -> LayerWidget Name -> Widget Name
+renderLayerWidget st index LayerWidget{..} = joinBorders
                                      . withBorderStyle Border.unicode
-                                     . Border.borderWithLabel ( str $ "Layer " <> show ( succ _layerWidgetIndex ) )
+                                     . Border.borderWithLabel ( str $ "Layer " <> show ( succ index ) )
                                      $ padAll 1 elements
   where
     beatEditor = drawEditor "Beat" _layerWidgetCodeField

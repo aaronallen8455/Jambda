@@ -104,7 +104,7 @@ syncLayer elapsedCells layer
             & layerCellPrefix .~ cellPrefix
   where
     remainingElapsed = elapsedCells - layer^.layerCellOffset
-    cycleSize = sum $ layer^.layerBeat
+    cycleSize = sum $ layer^.layerParsedCode
     elapsedCycles = remainingElapsed / cycleSize
     wholeCycles = fromIntegral $ truncate elapsedCycles
     cellsToDrop = elapsedCells - wholeCycles * cycleSize
