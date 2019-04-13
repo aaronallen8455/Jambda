@@ -6,6 +6,7 @@ module Jambda.UI.Events
 import            Control.Monad (join, void)
 import            Control.Monad.IO.Class
 import            Data.IORef
+import qualified  Data.IntMap as Map
 
 import            Control.Lens
 import qualified  Data.CircularList as CList
@@ -16,35 +17,57 @@ import qualified  Graphics.Vty as Vty
 import qualified  Data.Text.Zipper as TextZipper
 
 import            Jambda.Types
-import            Jambda.UI.Layer (handleLayerWidgetEvent, modifyBeat, modifyOffset, modifySource, resetLayer)
-
-import Debug.Trace
+import            Jambda.Data (modifyBeat, modifyOffset, modifySource, newLayer, resetLayer, syncLayer)
+import            Jambda.UI.Layer (handleLayerWidgetEvent, mkLayerWidget)
 
 eventHandler :: JamState -> Brick.BrickEvent Name e -> Brick.EventM Name ( Brick.Next JamState )
 eventHandler st (Brick.MouseDown n _ _ _) =
   case n of
     TempoName   -> Brick.continue $ st & jamStFocus %~ Focus.focusSetCurrent TempoName
+
     LayerName i DeleteName -> do
       liftIO $ modifyIORef ( st^.jamStLayersRef )
-                           ( toListOf $ folded . ifiltered (\ind _ -> ind /= i) )
+                           ( sans i )
 
--- TODO need to reindex the layer names
       let nameFilter (LayerName li _) | li == i = False
           nameFilter _ = True
           st' = st & jamStFocus %~ ( Focus.focusRingModify ( CList.filterR nameFilter ) )
-                   & jamStLayerWidgets %~ toListOf ( folded . ifiltered ( \ind _ -> ind /= i ) )
+                   & jamStLayerWidgets %~ sans i
 
       Brick.continue st'
+
     LayerName i f -> Brick.continue $ st & jamStFocus %~ Focus.focusSetCurrent ( LayerName i f )
+
     PlayName -> do
       void . liftIO $ st^.jamStStartPlayback
       Brick.continue st
+
     StopName -> do
       void . liftIO $ st^.jamStStopPlayback
       void . liftIO $ writeIORef ( st^.jamStElapsedCells ) 0
-      void . liftIO $ modifyIORef' ( st^.jamStLayersRef ) ( map resetLayer )
+      void . liftIO $ modifyIORef' ( st^.jamStLayersRef ) ( fmap resetLayer )
       Brick.continue st
-    -- x -> traceShow x Brick.halt st
+
+    AddLayerName -> do
+      st' <- liftIO . signalSemaphore ( st^.jamStSemaphore ) $ do
+        elapsedCells <- readIORef ( st^.jamStElapsedCells )
+
+        let mbNewIx = succ . fst <$> Map.lookupMax ( st^.jamStLayerWidgets )
+            newIx = maybe 0 id mbNewIx
+            layer = syncLayer elapsedCells . newLayer $ Pitch ANat 4 :: Layer
+            layerWidget = mkLayerWidget newIx layer
+            st' = st & jamStLayerWidgets %~ ( at newIx ?~ layerWidget )
+                     & jamStFocus %~ Focus.focusRingModify
+                                       ( CList.insertR ( LayerName newIx BeatCodeName )
+                                       . CList.insertR ( LayerName newIx OffsetName )
+                                       . CList.insertR ( LayerName newIx NoteName )
+                                       )
+
+        void $ modifyIORef' ( st^.jamStLayersRef ) ( at newIx ?~ layer )
+        pure st'
+
+      Brick.continue st'
+
 eventHandler st (Brick.VtyEvent ev) =
   case ev of
     Vty.EvKey (Vty.KChar '`') [] -> Brick.halt st
@@ -112,12 +135,10 @@ eventHandler st (Brick.VtyEvent ev) =
 
     _ -> Brick.continue =<< case Focus.focusGetCurrent ( st^.jamStFocus ) of
                               Just TempoName -> Brick.handleEventLensed st jamStTempoField Edit.handleEditorEvent ev
-                              Just (LayerName n field) -> Brick.handleEventLensed st (jamStLayerWidgets . unsafeIx n) (handleLayerWidgetEvent field) ev
+                              Just (LayerName n field) -> do
+                                Brick.handleEventLensed st (jamStLayerWidgets . at n) (handleLayerWidgetEvent field) ev
                               Nothing -> pure st
                               _ -> pure st
+
 eventHandler st _ = Brick.continue st
 
-unsafeIx :: Int -> Lens' [a] a
-unsafeIx n afb s = fmap setAt . afb $ s !! n where
-  setAt a = b ++ a : rest
-  (b, _: rest) = splitAt n s

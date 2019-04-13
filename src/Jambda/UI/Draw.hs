@@ -15,19 +15,21 @@ import Jambda.UI.Layer (renderLayerWidget)
 
 drawUI :: JamState -> [Widget Name]
 drawUI st = [ui] where
-  layerEditors = map ( renderLayerWidget st ) $ st^.jamStLayerWidgets
+  layerEditors = renderLayerWidget st <$> st^.jamStLayerWidgets
   layerUI      = foldr (<=>) emptyWidget layerEditors
   drawEditor label f = withBorderStyle Border.unicode
                      . Border.borderWithLabel ( str label )
                      $ Focus.withFocusRing (st^.jamStFocus)
                                            (Edit.renderEditor (str . unlines))
                                            f
-  tempoField   = hLimit 12 $ drawEditor "Tempo" $ st^.jamStTempoField
-  playButton   = clickable PlayName $ mkButton "Play"
-  stopButton   = clickable StopName $ mkButton "Stop"
+  tempoField     = hLimit 12 $ drawEditor "Tempo" $ st^.jamStTempoField
+  playButton     = clickable PlayName $ mkButton "Play"
+  stopButton     = clickable StopName $ mkButton "Stop"
+  addLayerButton = clickable AddLayerName $ mkButton "Add Layer"
   ui           = layerUI
              <=> tempoField
              <=> ( playButton <+> stopButton )
+             <=> addLayerButton
 
 mkButton :: String -> Widget Name
 mkButton label =

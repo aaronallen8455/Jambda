@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 3b2ccb097a0f60e7db58738d4be5e19d7639bb5abb15c7b9cadbbbec08eb27a0
+-- hash: 5f4113155a14d27d4f0a53b9051f006d5d196fb2927cd6e28d5824b2ac06b514
 
 name:           Jambda
 version:        0.1.0.0
@@ -29,7 +29,11 @@ library
   exposed-modules:
       Jambda.Data
       Jambda.Data.Audio
+      Jambda.Data.Constants
+      Jambda.Data.Conversions
+      Jambda.Data.Layer
       Jambda.Data.Parsers
+      Jambda.Data.Stream
       Jambda.Types
       Jambda.Types.JamState
       Jambda.Types.Layer
@@ -49,6 +53,7 @@ library
   build-depends:
       base >=4.7 && <5
     , brick
+    , containers
     , data-clist
     , lens
     , megaparsec
@@ -72,6 +77,7 @@ executable Synth-exe
       Jambda
     , base >=4.7 && <5
     , brick
+    , containers
     , data-clist
     , lens
     , megaparsec
@@ -96,6 +102,7 @@ test-suite Synth-test
       Jambda
     , base >=4.7 && <5
     , brick
+    , containers
     , data-clist
     , lens
     , megaparsec

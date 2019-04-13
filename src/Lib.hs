@@ -14,6 +14,7 @@ import Control.Lens
 import Control.Monad (when, void, forever, join)
 import Data.Function (fix)
 import Data.IORef
+import qualified Data.IntMap as Map
 import System.IO (hReady, hSetEcho, stdin)
 import GHC.Float (double2Float, float2Double)
 import Reactive.Banana
@@ -99,7 +100,7 @@ test = testSDL (BPM 120) [layer, layer2]
 
 brickTest :: IO ()
 brickTest = do
-  let layers = [layer, layer2]
+  let layers = Map.fromList [(0, layer), (1, layer2)]
       tempo = 120
   layerRef       <- newIORef layers
   tempoRef       <- newIORef tempo
