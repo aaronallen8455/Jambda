@@ -47,7 +47,7 @@ readChunk bufferSize bpm layer@Layer{..}
    )
   | otherwise = ( remLayer, take bufferSize $ samples)
   where
-    cellToTake = numSamplesToCells bpm $ fromIntegral bufferSize
+    cellToTake  = numSamplesToCells bpm $ fromIntegral bufferSize
     prefixValue = layer^.layerCellPrefix
 
     (numPrefixSamples, remPrefixCell) = numSamplesForCell bpm prefixValue
@@ -91,7 +91,7 @@ modifyBeat elapsedCells beatCode layer = do
 modifyOffset :: Cell -> String -> Layer -> Maybe Layer
 modifyOffset elapsedCells offsetCode layer = do
   offset <- parseCell offsetCode
-  pure . syncLayer elapsedCells $ layer & layerCellOffset .~ offset
+  pure $ syncLayer elapsedCells $ layer & layerCellOffset .~ offset
                                         & layerOffsetCode .~ offsetCode
 
 -- | Fast-forward a layer to the current time position
@@ -103,12 +103,12 @@ syncLayer elapsedCells layer
       layer & layerBeat       .~ newCells
             & layerCellPrefix .~ cellPrefix
   where
-    remainingElapsed = elapsedCells - layer^.layerCellOffset
-    cycleSize = sum $ layer^.layerParsedCode
-    elapsedCycles = remainingElapsed / cycleSize
-    wholeCycles = fromIntegral $ truncate elapsedCycles
-    cellsToDrop = elapsedCells - wholeCycles * cycleSize
-    cellCycle = cycle $ layer^.layerParsedCode
+    remainingElapsed       = elapsedCells - layer^.layerCellOffset
+    cycleSize              = sum $ layer^.layerParsedCode
+    elapsedCycles          = remainingElapsed / cycleSize
+    wholeCycles            = fromIntegral $ truncate elapsedCycles
+    cellsToDrop            = remainingElapsed - wholeCycles * cycleSize
+    cellCycle              = cycle $ layer^.layerParsedCode
     (cellPrefix, newCells) = dropCells cellsToDrop cellCycle
     dropCells dc (c:cs)
       | c >= dc = (c - dc, cs)
@@ -128,7 +128,7 @@ modifySource noteStr layer = do
 -- | Reset a layer to it's initial state
 resetLayer :: Layer -> Layer
 resetLayer layer =
-  layer & layerBeat .~ ( cycle $ layer^.layerParsedCode )
-        & layerCellPrefix .~ ( layer^.layerCellOffset )
+  layer & layerBeat         .~ ( cycle $ layer^.layerParsedCode )
+        & layerCellPrefix   .~ ( layer^.layerCellOffset )
         & layerSourcePrefix .~ []
 

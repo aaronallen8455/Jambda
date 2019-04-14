@@ -4,6 +4,7 @@ module Jambda.Data.Parsers
   , parseCell
   , parsePitch
   , cellP
+  , repCellP
   ) where
 
 import Control.Lens
@@ -92,11 +93,11 @@ cellP = do
 
 repCellP :: Parser [Cell]
 repCellP = do
-  cell <- cellP
+  cell <- cellP <* space
   guard $ cell > 0
   ( reps, ltm ) <- fmap ( maybe ( 1, 0 ) id ) . optional $ do
     reps <- between ( char '(' <* space )
-                    ( char '(' <* space )
+                    ( char ')' <* space )
                     intP
     ltm <- maybe 0 id <$> optional expressionP <* space
     pure ( reps, Cell ltm )
@@ -113,7 +114,8 @@ blockRepP = do
     let ( lastCell : rest ) = reverse inner :: [Cell]
     guard $ reps > 0 && lastCell + ltm > 0
     pure . concat . reverse
-         $ ( reverse $ lastCell + ltm : rest ) : ( replicate ( reps - 1 ) inner )
+         $ ( reverse $ lastCell + ltm : rest )
+         : ( replicate ( reps - 1 ) inner )
   where
     tagP = try simple <|> complex
     simple = (,) <$> intP <*> pure 0
@@ -141,18 +143,18 @@ beatP = fmap concat
                  ) `sepBy1` ( char ',' <* space )
 
 pitchP :: Parser Pitch
-pitchP = try ( Pitch <$> ( ANat  <$   string' "A" )                      <*> octaveP )
-     <|> try ( Pitch <$> ( BFlat <$ ( string' "Bb"   <|> string' "A#") ) <*> octaveP )
-     <|> try ( Pitch <$> ( BNat  <$ ( string' "B"    <|> string' "Cb") ) <*> octaveP )
-     <|> try ( Pitch <$> ( CNat  <$ ( string' "C"    <|> string' "B#") ) <*> octaveP )
-     <|> try ( Pitch <$> ( DFlat <$ ( string' "C#"   <|> string' "Db") ) <*> octaveP )
-     <|> try ( Pitch <$> ( DNat  <$   string' "D" )                      <*> octaveP )
-     <|> try ( Pitch <$> ( EFlat <$ ( string' "Eb"   <|> string' "D#") ) <*> octaveP )
-     <|> try ( Pitch <$> ( ENat  <$ ( string' "E"    <|> string' "Fb") ) <*> octaveP )
-     <|> try ( Pitch <$> ( FNat  <$ ( string' "F"    <|> string' "E#") ) <*> octaveP )
-     <|> try ( Pitch <$> ( GFlat <$ ( string' "F#"   <|> string' "Gb") ) <*> octaveP )
-     <|> try ( Pitch <$> ( GNat  <$   string' "G" )                      <*> octaveP )
-     <|>     ( Pitch <$> ( AFlat <$ ( string' "G#"   <|> string' "Ab") ) <*> octaveP )
+pitchP = try ( Pitch <$> ( ANat  <$   string' "A"                     ) <*> octaveP )
+     <|> try ( Pitch <$> ( BFlat <$ ( string' "Bb" <|> string' "A#" ) ) <*> octaveP )
+     <|> try ( Pitch <$> ( BNat  <$ ( string' "B"  <|> string' "Cb" ) ) <*> octaveP )
+     <|> try ( Pitch <$> ( CNat  <$ ( string' "C"  <|> string' "B#" ) ) <*> octaveP )
+     <|> try ( Pitch <$> ( DFlat <$ ( string' "C#" <|> string' "Db" ) ) <*> octaveP )
+     <|> try ( Pitch <$> ( DNat  <$   string' "D"                     ) <*> octaveP )
+     <|> try ( Pitch <$> ( EFlat <$ ( string' "Eb" <|> string' "D#" ) ) <*> octaveP )
+     <|> try ( Pitch <$> ( ENat  <$ ( string' "E"  <|> string' "Fb" ) ) <*> octaveP )
+     <|> try ( Pitch <$> ( FNat  <$ ( string' "F"  <|> string' "E#" ) ) <*> octaveP )
+     <|> try ( Pitch <$> ( GFlat <$ ( string' "F#" <|> string' "Gb" ) ) <*> octaveP )
+     <|> try ( Pitch <$> ( GNat  <$   string' "G"                     ) <*> octaveP )
+     <|>     ( Pitch <$> ( AFlat <$ ( string' "G#" <|> string' "Ab" ) ) <*> octaveP )
 
 octaveP :: Parser Octave
 octaveP = do

@@ -96,7 +96,8 @@ eventHandler st (Brick.VtyEvent ev) =
     Vty.EvKey Vty.KEnter [] ->
       case Focus.focusGetCurrent ( st^.jamStFocus ) of
         Just (LayerName i BeatCodeName) -> do
-          let mbBeatCode = concat . Edit.getEditContents <$> st ^? jamStLayerWidgets.ix i . layerWidgetCodeField
+          let mbBeatCode = concat . Edit.getEditContents
+                       <$> st ^? jamStLayerWidgets.ix i . layerWidgetCodeField
 
           liftIO . signalSemaphore ( st^.jamStSemaphore ) $ do
             elapsedCells <- readIORef ( st^.jamStElapsedCells )
@@ -108,7 +109,8 @@ eventHandler st (Brick.VtyEvent ev) =
                             in maybe layers (\x -> layers & ix i .~ x) mbLayer
           Brick.continue st
         Just (LayerName i OffsetName) -> do
-          let mbOffsetCode = concat . Edit.getEditContents <$> st ^? jamStLayerWidgets.ix i . layerWidgetOffsetField
+          let mbOffsetCode = concat . Edit.getEditContents
+                         <$> st ^? jamStLayerWidgets.ix i . layerWidgetOffsetField
 
           liftIO . signalSemaphore ( st^.jamStSemaphore ) $ do
             elapsedCells <- liftIO $ readIORef ( st^.jamStElapsedCells )
@@ -121,7 +123,8 @@ eventHandler st (Brick.VtyEvent ev) =
           Brick.continue st
 
         Just (LayerName i NoteName) -> do
-          let mbNoteStr = concat . Edit.getEditContents <$> st ^? jamStLayerWidgets.ix i . layerWidgetSourceField
+          let mbNoteStr = concat . Edit.getEditContents
+                      <$> st ^? jamStLayerWidgets.ix i . layerWidgetSourceField
 
           liftIO . modifyIORef' ( st^.jamStLayersRef )
             $ \layers -> let mbLayer = join $ modifySource
@@ -133,12 +136,20 @@ eventHandler st (Brick.VtyEvent ev) =
 
         _ -> Brick.continue st
 
-    _ -> Brick.continue =<< case Focus.focusGetCurrent ( st^.jamStFocus ) of
-                              Just TempoName -> Brick.handleEventLensed st jamStTempoField Edit.handleEditorEvent ev
-                              Just (LayerName n field) -> do
-                                Brick.handleEventLensed st (jamStLayerWidgets . at n) (handleLayerWidgetEvent field) ev
-                              Nothing -> pure st
-                              _ -> pure st
+    _ -> Brick.continue
+           =<< case Focus.focusGetCurrent ( st^.jamStFocus ) of
+                      Just TempoName ->
+                        Brick.handleEventLensed st
+                                                jamStTempoField
+                                                Edit.handleEditorEvent
+                                                ev
+                      Just (LayerName n field) ->
+                        Brick.handleEventLensed st
+                                                (jamStLayerWidgets . at n)
+                                                (handleLayerWidgetEvent field)
+                                                ev
+                      Nothing -> pure st
+                      _ -> pure st
 
 eventHandler st _ = Brick.continue st
 
