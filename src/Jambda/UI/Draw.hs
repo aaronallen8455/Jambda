@@ -29,12 +29,9 @@ drawUI st = [ui] where
   stopButton     = clickable StopName $ mkButton "Stop"
   addLayerButton = clickable AddLayerName $ mkButton "Add Layer"
   ui           = layerUI
-             <=> tempoField
-             <=> ( playButton <+> stopButton )
-             <=> addLayerButton
+             <=> ( tempoField <+> playButton <+> stopButton <+> addLayerButton )
 
 mkButton :: String -> Widget Name
 mkButton label =
   withBorderStyle Border.unicodeBold . Border.border . padLeftRight 1 $ str label
-
 

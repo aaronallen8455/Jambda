@@ -3,15 +3,15 @@ module Jambda.Data.Parsers
   , parseBpm
   , parseCell
   , parsePitch
+  , cellP
   ) where
-
-import Data.Functor (($>))
 
 import Control.Lens
 import Control.Monad (guard)
 import Control.Monad.Trans (lift)
-import Control.Monad.Trans.State
+import Control.Monad.Trans.State (execStateT)
 import Data.Foldable (for_)
+import Data.Functor (($>))
 import Data.Void (Void)
 import GHC.Exts (IsList(..))
 import Text.Megaparsec
@@ -22,7 +22,7 @@ import Jambda.Types
 type Parser = Parsec Void String
 
 parseBeat :: String -> Maybe [Cell]
-parseBeat = parseMaybe beatP
+parseBeat = parseMaybe ( beatP <* eof )
 
 parseCell :: String -> Maybe Cell
 parseCell = parseMaybe cellP
@@ -40,11 +40,14 @@ bpmP = do
   pure $ BPM v
 
 doubleP :: Parser Double
-doubleP = read <$> ( try numP <|> try mixP <|> fmap ('0':) fracP )
+doubleP = read <$> ( try mixedP <|> fmap ('0':) fracP )
   where
-    numP  = some digitChar
-    mixP  = (++) <$> numP <*> fracP
-    fracP = (:) <$> char '.' <*> numP
+    numP   = some digitChar
+    fracP  = (:) <$> char '.' <*> numP
+    mixedP = do
+      a <- numP
+      b <- fmap (maybe "" id) $ optional fracP
+      pure $ a ++ b
 
 data Operator
   = Add
@@ -87,22 +90,69 @@ cellP = do
   guard $ v > 0
   pure $ Cell v
 
+repCellP :: Parser [Cell]
+repCellP = do
+  cell <- cellP
+  guard $ cell > 0
+  ( reps, ltm ) <- fmap ( maybe ( 1, 0 ) id ) . optional $ do
+    reps <- between ( char '(' <* space )
+                    ( char '(' <* space )
+                    intP
+    ltm <- maybe 0 id <$> optional expressionP <* space
+    pure ( reps, Cell ltm )
+  guard $ reps > 0 && cell + ltm > 0
+  pure . reverse $ cell + ltm : replicate ( reps - 1 ) cell
+
+blockRepP :: Parser [Cell]
+blockRepP = do
+    inner <- between ( char '[' <* space )
+                     ( char ']' <* space )
+                     beatP
+    guard . not $ null inner
+    (reps, ltm) <- tagP <* space
+    let ( lastCell : rest ) = reverse inner :: [Cell]
+    guard $ reps > 0 && lastCell + ltm > 0
+    pure . concat . reverse
+         $ ( reverse $ lastCell + ltm : rest ) : ( replicate ( reps - 1 ) inner )
+  where
+    tagP = try simple <|> complex
+    simple = (,) <$> intP <*> pure 0
+    complex = do
+      reps <- between ( char '(' <* space )
+                      ( char ')' <* space )
+                      intP
+      ltm <- expressionP
+      pure (reps, Cell ltm)
+
+blockMultP :: Parser [Cell]
+blockMultP = do
+  inner <- between ( char '{' <* space )
+                   ( char '}' <* space )
+                   beatP
+  factor <- Cell <$> expressionP
+  guard $ factor > 0
+  pure $ map ( * factor ) inner
+
 beatP :: Parser [Cell]
-beatP = space *> cellP `sepBy` ( char ',' <* space ) <* eof
+beatP = fmap concat
+      $ space *> (   try repCellP
+                 <|> try blockRepP
+                 <|> blockMultP
+                 ) `sepBy1` ( char ',' <* space )
 
 pitchP :: Parser Pitch
-pitchP = try ( Pitch <$> (ANat  <$ string' "A") <*> octaveP )
-     <|> try ( Pitch <$> (BFlat <$ (string' "Bb" <|> string' "A#") ) <*> octaveP )
-     <|> try ( Pitch <$> (BNat  <$ (string' "B" <|> string' "Cb") ) <*> octaveP )
-     <|> try ( Pitch <$> (CNat  <$ (string' "C" <|> string' "B#") ) <*> octaveP )
-     <|> try ( Pitch <$> (DFlat <$ (string' "C#" <|> string' "Db") ) <*> octaveP )
-     <|> try ( Pitch <$> (DNat  <$ (string' "D") ) <*> octaveP )
-     <|> try ( Pitch <$> (EFlat <$ (string' "Eb" <|> string' "D#") ) <*> octaveP )
-     <|> try ( Pitch <$> (ENat  <$ (string' "E" <|> string' "Fb") ) <*> octaveP )
-     <|> try ( Pitch <$> (FNat  <$ (string' "F" <|> string' "E#") ) <*> octaveP )
-     <|> try ( Pitch <$> (GFlat <$ (string' "F#" <|> string' "Gb") ) <*> octaveP )
-     <|> try ( Pitch <$> (GNat  <$ (string' "G") ) <*> octaveP )
-     <|>     ( Pitch <$> (AFlat <$ (string' "G#" <|> string' "Ab") ) <*> octaveP )
+pitchP = try ( Pitch <$> ( ANat  <$   string' "A" )                      <*> octaveP )
+     <|> try ( Pitch <$> ( BFlat <$ ( string' "Bb"   <|> string' "A#") ) <*> octaveP )
+     <|> try ( Pitch <$> ( BNat  <$ ( string' "B"    <|> string' "Cb") ) <*> octaveP )
+     <|> try ( Pitch <$> ( CNat  <$ ( string' "C"    <|> string' "B#") ) <*> octaveP )
+     <|> try ( Pitch <$> ( DFlat <$ ( string' "C#"   <|> string' "Db") ) <*> octaveP )
+     <|> try ( Pitch <$> ( DNat  <$   string' "D" )                      <*> octaveP )
+     <|> try ( Pitch <$> ( EFlat <$ ( string' "Eb"   <|> string' "D#") ) <*> octaveP )
+     <|> try ( Pitch <$> ( ENat  <$ ( string' "E"    <|> string' "Fb") ) <*> octaveP )
+     <|> try ( Pitch <$> ( FNat  <$ ( string' "F"    <|> string' "E#") ) <*> octaveP )
+     <|> try ( Pitch <$> ( GFlat <$ ( string' "F#"   <|> string' "Gb") ) <*> octaveP )
+     <|> try ( Pitch <$> ( GNat  <$   string' "G" )                      <*> octaveP )
+     <|>     ( Pitch <$> ( AFlat <$ ( string' "G#"   <|> string' "Ab") ) <*> octaveP )
 
 octaveP :: Parser Octave
 octaveP = do

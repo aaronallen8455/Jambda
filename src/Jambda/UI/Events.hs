@@ -86,7 +86,7 @@ eventHandler st (Brick.VtyEvent ev) =
     Vty.EvKey Vty.KDown [] ->
       case Focus.focusGetCurrent ( st^.jamStFocus ) of
         Just TempoName -> do
-          liftIO $ modifyIORef ( st^.jamStTempoRef ) pred
+          liftIO $ modifyIORef ( st^.jamStTempoRef ) ( max 1 . pred )
           tempo <- liftIO $ bpmToString <$> readIORef ( st^.jamStTempoRef )
           let st' = st & jamStTempoField %~ Edit.applyEdit ( const $ TextZipper.stringZipper [ tempo ] ( Just 1 ) )
           Brick.continue st'
