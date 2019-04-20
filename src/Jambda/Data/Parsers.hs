@@ -3,30 +3,35 @@ module Jambda.Data.Parsers
   , parseBpm
   , parseCell
   , parsePitch
-  , cellP
-  , repCellP
+  , parseOffset
   ) where
 
-import Control.Lens
-import Control.Monad (guard)
-import Control.Monad.Trans (lift)
-import Control.Monad.Trans.State (execStateT)
-import Data.Foldable (for_)
-import Data.Functor (($>))
-import Data.Void (Void)
-import GHC.Exts (IsList(..))
-import Text.Megaparsec
-import Text.Megaparsec.Char
+import            Control.Lens
+import            Control.Monad (guard)
+import            Control.Monad.Trans (lift)
+import            Control.Monad.Trans.State (execStateT)
+import            Data.Foldable (for_)
+import            Data.Functor (($>))
+import            Data.List.NonEmpty (NonEmpty(..))
+import qualified  Data.List.NonEmpty as NonEmpty
+import            Data.Semigroup (sconcat)
+import            Data.Void (Void)
+import            GHC.Exts (IsList(..))
+import            Text.Megaparsec
+import            Text.Megaparsec.Char
 
-import Jambda.Types
+import            Jambda.Types
 
 type Parser = Parsec Void String
 
-parseBeat :: String -> Maybe [Cell]
+parseBeat :: String -> Maybe (NonEmpty Cell)
 parseBeat = parseMaybe ( beatP <* eof )
 
 parseCell :: String -> Maybe Cell
-parseCell = parseMaybe cellP
+parseCell = parseMaybe ( cellP ( > 0 ) )
+
+parseOffset :: String -> Maybe Cell
+parseOffset = parseMaybe ( cellP ( >= 0 ) )
 
 parseBpm :: String -> Maybe BPM
 parseBpm = parseMaybe bpmP
@@ -85,15 +90,15 @@ expressionP = fmap ( uncurry (+) )
                 then failure ( Just . Tokens $ fromList "divide by 0" ) mempty
                 else mult ( 1 / num )
 
-cellP :: Parser Cell
-cellP = do
+cellP :: (Double -> Bool) -> Parser Cell
+cellP pred = do
   v <- expressionP
-  guard $ v > 0
+  guard $ pred v
   pure $ Cell v
 
-repCellP :: Parser [Cell]
-repCellP = do
-  cell <- cellP <* space
+repCellP :: Parser (NonEmpty Cell)
+repCellP = nonEmptyGuard $ do
+  cell <- cellP ( > 0 ) <* space
   guard $ cell > 0
   ( reps, ltm ) <- fmap ( maybe ( 1, 0 ) id ) . optional $ do
     reps <- between ( char '(' <* space )
@@ -104,18 +109,17 @@ repCellP = do
   guard $ reps > 0 && cell + ltm > 0
   pure . reverse $ cell + ltm : replicate ( reps - 1 ) cell
 
-blockRepP :: Parser [Cell]
+blockRepP :: Parser (NonEmpty Cell)
 blockRepP = do
     inner <- between ( char '[' <* space )
                      ( char ']' <* space )
                      beatP
-    guard . not $ null inner
     (reps, ltm) <- tagP <* space
-    let ( lastCell : rest ) = reverse inner :: [Cell]
+    let ( lastCell :| rest ) = NonEmpty.reverse inner
     guard $ reps > 0 && lastCell + ltm > 0
-    pure . concat . reverse
-         $ ( reverse $ lastCell + ltm : rest )
-         : ( replicate ( reps - 1 ) inner )
+    pure . sconcat . NonEmpty.reverse
+          $ ( NonEmpty.reverse $ lastCell + ltm :| rest )
+         :| ( replicate ( reps - 1 ) inner )
   where
     tagP = try simple <|> complex
     simple = (,) <$> intP <*> pure 0
@@ -126,21 +130,27 @@ blockRepP = do
       ltm <- expressionP
       pure (reps, Cell ltm)
 
-blockMultP :: Parser [Cell]
+blockMultP :: Parser (NonEmpty Cell)
 blockMultP = do
   inner <- between ( char '{' <* space )
                    ( char '}' <* space )
                    beatP
   factor <- Cell <$> expressionP
   guard $ factor > 0
-  pure $ map ( * factor ) inner
+  pure $ fmap ( * factor ) inner
 
-beatP :: Parser [Cell]
-beatP = fmap concat
+beatP :: Parser (NonEmpty Cell)
+beatP = fmap sconcat . nonEmptyGuard
       $ space *> (   try repCellP
                  <|> try blockRepP
                  <|> blockMultP
                  ) `sepBy1` ( char ',' <* space )
+
+nonEmptyGuard :: Parser [a] -> Parser (NonEmpty a)
+nonEmptyGuard p = do
+  xs <- p
+  guard . not $ null xs
+  pure $ NonEmpty.fromList xs
 
 pitchP :: Parser Pitch
 pitchP = try ( Pitch <$> ( ANat  <$   string' "A"                     ) <*> octaveP )

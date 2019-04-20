@@ -1,4 +1,5 @@
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE OverloadedLists #-}
 module Jambda.Data.Layer
   ( newLayer
   , readChunk
@@ -10,20 +11,24 @@ module Jambda.Data.Layer
   , resetLayer
   ) where
 
-import Control.Lens
-import Control.Monad (guard)
+import            Control.Lens hiding ((:>))
+import            Control.Monad (guard)
+import            Data.List.NonEmpty (NonEmpty(..))
+import            Data.Stream.Infinite (Stream(..))
+import qualified  Data.Stream.Infinite as Stream
+import qualified  Data.Stream.Infinite as Stream
 
-import Jambda.Types
-import Jambda.Data.Stream (linearTaper, silence, sineWave)
-import Jambda.Data.Conversions (numSamplesToCells, numSamplesForCell)
-import Jambda.Data.Parsers (parseBeat, parseCell, parsePitch)
+import            Jambda.Types
+import            Jambda.Data.Stream (linearTaper, silence, sineWave)
+import            Jambda.Data.Conversions (numSamplesToCells, numSamplesForCell)
+import            Jambda.Data.Parsers (parseBeat, parseCell, parseOffset, parsePitch)
 
 -- | Create a new layer with the given Pitch using defaults
 -- for all other fields
 newLayer :: Pitch -> Layer
 newLayer pitch = Layer
   { _layerSource = source
-  , _layerBeat = repeat 1
+  , _layerBeat = pure 1
   , _layerCode = "1"
   , _layerParsedCode = [1]
   , _layerCellOffset = 0
@@ -43,37 +48,35 @@ readChunk bufferSize bpm layer@Layer{..}
   | prefixValue >= cellToTake =
     ( layer & layerSourcePrefix %~ (drop bufferSize)
             & layerCellPrefix   -~ cellToTake
-    , take bufferSize $ _layerSourcePrefix ++ silence
+    , Stream.take bufferSize $ _layerSourcePrefix `Stream.prepend` silence
    )
-  | otherwise = ( remLayer, take bufferSize $ samples)
+  | otherwise = ( remLayer, take bufferSize $ samples )
   where
     cellToTake  = numSamplesToCells bpm $ fromIntegral bufferSize
     prefixValue = layer^.layerCellPrefix
 
     (numPrefixSamples, remPrefixCell) = numSamplesForCell bpm prefixValue
-    prefixSamples = take numPrefixSamples $ _layerSourcePrefix ++ silence
+    prefixSamples = Stream.take numPrefixSamples $ _layerSourcePrefix `Stream.prepend` silence
     (remLayer, newSamples) = getSamples bpm
-                                        layer
-                                        ( _layerBeat & ix 0 +~ remPrefixCell )
+                                        ( layer & layerBeat . ix 0 +~ remPrefixCell )
                                         (bufferSize - numPrefixSamples)
     samples = prefixSamples ++ newSamples
 
 -- | Pull the specified number of samples from a layer.
 -- returns the samples and the modified layer.
-getSamples :: BPM -> Layer -> [Cell] -> Int -> (Layer, [Sample])
-getSamples _ layer [] _ = (layer, [])
-getSamples bpm layer (c:cells) nsamps
+getSamples :: BPM -> Layer -> Int -> (Layer, [Sample])
+getSamples bpm layer nsamps
   | nsamps <= wholeCellSamps = (newLayer, take nsamps source)
   | otherwise = _2 %~ ( take wholeCellSamps source ++ )
               $ getSamples bpm
-                           layer
-                           ( cells & ix 0 +~ leftover )
+                           ( layer & layerBeat . ix 0 +~ leftover )
                            ( nsamps - wholeCellSamps )
   where
+    ( c :> cells ) = layer^.layerBeat
     source = layer^.layerSource
     ( wholeCellSamps, leftover ) = numSamplesForCell bpm c
     diff = wholeCellSamps - nsamps
-    newCellPrefix = c - numSamplesToCells bpm (fromIntegral nsamps) + leftover
+    newCellPrefix = (c - numSamplesToCells bpm (fromIntegral nsamps) + leftover)
     newLayer = layer & layerBeat         .~ cells
                      & layerCellPrefix   .~ newCellPrefix
                      & layerSourcePrefix .~ (drop nsamps source)
@@ -83,14 +86,14 @@ modifyBeat :: Cell -> String -> Layer -> Maybe Layer
 modifyBeat elapsedCells beatCode layer = do
   cells <- parseBeat beatCode
   guard $ length cells > 0
-  pure . syncLayer elapsedCells $ layer & layerBeat       .~ cycle cells
+  pure . syncLayer elapsedCells $ layer & layerBeat       .~ Stream.cycle cells
                                         & layerCode       .~ beatCode
                                         & layerParsedCode .~ cells
 
 -- | Change the offset of the layer
 modifyOffset :: Cell -> String -> Layer -> Maybe Layer
 modifyOffset elapsedCells offsetCode layer = do
-  offset <- parseCell offsetCode
+  offset <- parseOffset offsetCode
   pure $ syncLayer elapsedCells $ layer & layerCellOffset .~ offset
                                         & layerOffsetCode .~ offsetCode
 
@@ -108,9 +111,9 @@ syncLayer elapsedCells layer
     elapsedCycles          = remainingElapsed / cycleSize
     wholeCycles            = fromIntegral $ truncate elapsedCycles
     cellsToDrop            = remainingElapsed - wholeCycles * cycleSize
-    cellCycle              = cycle $ layer^.layerParsedCode
+    cellCycle              = Stream.cycle $ layer^.layerParsedCode
     (cellPrefix, newCells) = dropCells cellsToDrop cellCycle
-    dropCells dc (c:cs)
+    dropCells dc (c :> cs)
       | c >= dc = (c - dc, cs)
       | otherwise = dropCells (dc - c) cs
 
@@ -128,7 +131,7 @@ modifySource noteStr layer = do
 -- | Reset a layer to it's initial state
 resetLayer :: Layer -> Layer
 resetLayer layer =
-  layer & layerBeat         .~ ( cycle $ layer^.layerParsedCode )
+  layer & layerBeat         .~ ( Stream.cycle $ layer^.layerParsedCode )
         & layerCellPrefix   .~ ( layer^.layerCellOffset )
         & layerSourcePrefix .~ []
 
