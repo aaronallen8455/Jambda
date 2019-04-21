@@ -113,9 +113,9 @@ syncLayer elapsedCells layer
     cellsToDrop            = remainingElapsed - wholeCycles * cycleSize
     cellCycle              = Stream.cycle $ layer^.layerParsedCode
     (cellPrefix, newCells) = dropCells cellsToDrop cellCycle
-    dropCells dc (c :> cs)
-      | c >= dc = (c - dc, cs)
-      | otherwise = dropCells (dc - c) cs
+    dropCells dc ( c :> cs )
+      | c >= dc = ( c - dc, cs )
+      | otherwise = dropCells ( dc - c ) cs
 
 -- | Change the sound source (Pitch) of the layer
 modifySource :: String -> Layer -> Maybe Layer

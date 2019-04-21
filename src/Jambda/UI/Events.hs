@@ -17,7 +17,7 @@ import qualified  Graphics.Vty as Vty
 import qualified  Data.Text.Zipper as TextZipper
 
 import            Jambda.Types
-import            Jambda.Data (modifyBeat, modifyOffset, modifySource, newLayer, resetLayer, syncLayer)
+import            Jambda.Data (modifyBeat, modifyOffset, modifySource, newLayer, numSamplesToCells, resetLayer, syncLayer)
 import            Jambda.UI.Layer (handleLayerWidgetEvent, mkLayerWidget)
 
 eventHandler :: JamState -> Brick.BrickEvent Name e -> Brick.EventM Name ( Brick.Next JamState )
@@ -44,15 +44,17 @@ eventHandler st (Brick.MouseDown n _ _ _) =
 
     StopName -> do
       void . liftIO $ st^.jamStStopPlayback
-      void . liftIO $ writeIORef ( st^.jamStElapsedCells ) 0
+      void . liftIO $ writeIORef ( st^.jamStElapsedSamples ) 0
       void . liftIO $ modifyIORef' ( st^.jamStLayersRef ) ( fmap resetLayer )
       Brick.continue st
 
     AddLayerName -> do
       st' <- liftIO . signalSemaphore ( st^.jamStSemaphore ) $ do
-        elapsedCells <- readIORef ( st^.jamStElapsedCells )
+        elapsedSamples <- readIORef ( st^.jamStElapsedSamples )
+        tempo <- readIORef ( st^.jamStTempoRef )
 
-        let mbNewIx = succ . fst <$> Map.lookupMax ( st^.jamStLayerWidgets )
+        let elapsedCells = numSamplesToCells tempo ( fromRational elapsedSamples )
+            mbNewIx = succ . fst <$> Map.lookupMax ( st^.jamStLayerWidgets )
             newIx = maybe 0 id mbNewIx
             layer = syncLayer elapsedCells . newLayer $ Pitch ANat 4 :: Layer
             layerWidget = mkLayerWidget newIx layer
@@ -77,18 +79,42 @@ eventHandler st (Brick.VtyEvent ev) =
     Vty.EvKey Vty.KUp [] ->
       case Focus.focusGetCurrent ( st^.jamStFocus ) of
         Just TempoName -> do
-          liftIO $ modifyIORef' ( st^.jamStTempoRef ) succ
-          tempo <- liftIO $ bpmToString <$> readIORef ( st^.jamStTempoRef )
-          let st' = st & jamStTempoField %~ Edit.applyEdit ( const $ TextZipper.stringZipper [ tempo ] ( Just 1 ) )
+          newTempoStr <- liftIO . signalSemaphore ( st^.jamStSemaphore ) $ do
+            currentTempo <- readIORef $ st^.jamStTempoRef
+            let newTempo = succ currentTempo
+                ratio = getBPM $ currentTempo / newTempo
+
+            modifyIORef' ( st^.jamStElapsedSamples ) ( * ratio )
+            writeIORef ( st^.jamStTempoRef ) newTempo
+            pure $ bpmToString newTempo
+
+          let st' = st & jamStTempoField %~
+                         ( Edit.applyEdit
+                         . const $ TextZipper.stringZipper [ newTempoStr ]
+                                                           ( Just 1 )
+                         )
+
           Brick.continue st'
         _ -> Brick.continue st
 
     Vty.EvKey Vty.KDown [] ->
       case Focus.focusGetCurrent ( st^.jamStFocus ) of
         Just TempoName -> do
-          liftIO $ modifyIORef ( st^.jamStTempoRef ) ( max 1 . pred )
-          tempo <- liftIO $ bpmToString <$> readIORef ( st^.jamStTempoRef )
-          let st' = st & jamStTempoField %~ Edit.applyEdit ( const $ TextZipper.stringZipper [ tempo ] ( Just 1 ) )
+          newTempoStr <- liftIO . signalSemaphore ( st^.jamStSemaphore ) $ do
+            currentTempo <- readIORef $ st^.jamStTempoRef
+            let newTempo = pred currentTempo
+                ratio = getBPM $ currentTempo / newTempo
+
+            modifyIORef' ( st^.jamStElapsedSamples ) ( * ratio )
+            writeIORef ( st^.jamStTempoRef ) newTempo
+            pure $ bpmToString newTempo
+
+          let st' = st & jamStTempoField %~
+                         ( Edit.applyEdit
+                         . const $ TextZipper.stringZipper [ newTempoStr ]
+                                                           ( Just 1 )
+                         )
+
           Brick.continue st'
         _ -> Brick.continue st
 
@@ -100,7 +126,10 @@ eventHandler st (Brick.VtyEvent ev) =
                        <$> st ^? jamStLayerWidgets.ix i . layerWidgetCodeField
 
           liftIO . signalSemaphore ( st^.jamStSemaphore ) $ do
-            elapsedCells <- readIORef ( st^.jamStElapsedCells )
+            elapsedSamples <- readIORef ( st^.jamStElapsedSamples )
+            tempo <- readIORef ( st^.jamStTempoRef )
+            let elapsedCells = numSamplesToCells tempo
+                             $ fromRational elapsedSamples
 
             modifyIORef' ( st^.jamStLayersRef )
               $ \layers -> let mbLayer = join $ modifyBeat elapsedCells
@@ -113,7 +142,10 @@ eventHandler st (Brick.VtyEvent ev) =
                          <$> st ^? jamStLayerWidgets.ix i . layerWidgetOffsetField
 
           liftIO . signalSemaphore ( st^.jamStSemaphore ) $ do
-            elapsedCells <- liftIO $ readIORef ( st^.jamStElapsedCells )
+            elapsedSamples <- liftIO $ readIORef ( st^.jamStElapsedSamples )
+            tempo <- liftIO $ readIORef ( st^.jamStTempoRef )
+            let elapsedCells = numSamplesToCells tempo
+                             $ fromRational elapsedSamples
 
             modifyIORef' ( st^.jamStLayersRef )
               $ \layers -> let mbLayer = join $ modifyOffset elapsedCells

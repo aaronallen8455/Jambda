@@ -1,4 +1,5 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE TypeApplications #-}
 module Jambda.Types.Newtypes
   ( Sample(..)
   , Cell(..)
@@ -20,10 +21,10 @@ instance Show Cell where
 
 newtype Freq = Freq { getFreq :: Double } deriving (Show, Eq, Ord, Num)
 
-newtype BPM = BPM { getBPM :: Double } deriving (Show, Eq, Ord, Num, Enum)
+newtype BPM = BPM { getBPM :: Rational } deriving (Show, Eq, Ord, Num, Enum, Fractional)
 
 bpmToString :: BPM -> String
-bpmToString (BPM x) = printf "%.1f" x
+bpmToString (BPM x) = printf "%.1f" $ fromRational @ Double x
 
 newtype Sec = Sec { getSec :: Double } deriving (Show, Eq, Ord, Num)
 

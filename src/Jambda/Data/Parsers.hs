@@ -41,7 +41,7 @@ parsePitch = parseMaybe pitchP
 
 bpmP :: Parser BPM
 bpmP = do
-  v <- doubleP
+  v <- toRational <$> doubleP
   guard $ v > 0
   pure $ BPM v
 

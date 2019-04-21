@@ -22,17 +22,17 @@ main :: IO ()
 main = do
   let layers = Map.singleton 0 ( newLayer $ Pitch ANat 4 )
       tempo = 120
-  layerRef       <- newIORef layers
-  tempoRef       <- newIORef tempo
-  volumeRef      <- newIORef 1
-  elapsedCellRef <- newIORef 0
-  semaphore      <- newSemaphore
+  layerRef          <- newIORef layers
+  tempoRef          <- newIORef tempo
+  volumeRef         <- newIORef 1
+  elapsedSamplesRef <- newIORef 0
+  semaphore         <- newSemaphore
 
   SDL.initialize [SDL.InitAudio]
   (audioDevice, audioSpec)
     <- SDL.openAudioDevice
      $ openDeviceSpec
-     $ audioCallback semaphore layerRef tempoRef elapsedCellRef
+     $ audioCallback semaphore layerRef tempoRef elapsedSamplesRef
 
   let startPlayback = SDL.setAudioDevicePlaybackState audioDevice SDL.Play
       stopPlayback = SDL.setAudioDevicePlaybackState audioDevice SDL.Pause
@@ -48,19 +48,25 @@ main = do
                       , appAttrMap = const $ Brick.attrMap Vty.defAttr []
                       }
 
-      initState = JamState { _jamStLayersRef = layerRef
-                           , _jamStTempoRef = tempoRef
-                           , _jamStVolumeRef = volumeRef
-                           , _jamStTempoField = Edit.editor TempoName ( Just 1 ) ( show $ getBPM tempo )
-                           , _jamStLayerWidgets = imap mkLayerWidget layers
-                           , _jamStFocus = Focus.focusRing ( ( LayerName <$> [ 0 .. length layers - 1 ]
-                                                                         <*> [ BeatCodeName, OffsetName, NoteName ]
-                                                             ) ++ [ TempoName ]
-                                                           )
-                           , _jamStElapsedCells = elapsedCellRef
-                           , _jamStSemaphore = semaphore
-                           , _jamStStartPlayback = startPlayback
-                           , _jamStStopPlayback = stopPlayback
+      focusRing = Focus.focusRing
+                    ( ( LayerName <$> [ 0 .. length layers - 1 ]
+                                  <*> [ BeatCodeName, OffsetName, NoteName ]
+                      ) ++ [ TempoName ]
+                    )
+
+      tempoField = Edit.editor TempoName ( Just 1 )
+                                         ( bpmToString tempo )
+
+      initState = JamState { _jamStLayersRef      = layerRef
+                           , _jamStTempoRef       = tempoRef
+                           , _jamStVolumeRef      = volumeRef
+                           , _jamStTempoField     = tempoField
+                           , _jamStLayerWidgets   = imap mkLayerWidget layers
+                           , _jamStFocus          = focusRing
+                           , _jamStElapsedSamples = elapsedSamplesRef
+                           , _jamStSemaphore      = semaphore
+                           , _jamStStartPlayback  = startPlayback
+                           , _jamStStopPlayback   = stopPlayback
                            }
 
   finalState <- Brick.defaultMain app initState :: IO JamState
