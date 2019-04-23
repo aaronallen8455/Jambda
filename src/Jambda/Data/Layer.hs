@@ -1,5 +1,6 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedLists #-}
+{-# LANGUAGE BangPatterns #-}
 module Jambda.Data.Layer
   ( newLayer
   , readChunk
@@ -49,7 +50,7 @@ readChunk bufferSize bpm layer@Layer{..}
     ( layer & layerSourcePrefix %~ (drop bufferSize)
             & layerCellPrefix   -~ cellToTake
     , Stream.take bufferSize $ _layerSourcePrefix `Stream.prepend` silence
-   )
+    )
   | otherwise = ( remLayer, take bufferSize $ samples )
   where
     cellToTake  = numSamplesToCells bpm $ fromIntegral bufferSize
@@ -82,20 +83,20 @@ getSamples bpm layer nsamps
                      & layerSourcePrefix .~ (drop nsamps source)
 
 -- | Change the beatcode of a Layer
-modifyBeat :: Cell -> String -> Layer -> Maybe Layer
-modifyBeat elapsedCells beatCode layer = do
+modifyBeat :: String -> Layer -> Maybe Layer
+modifyBeat beatCode layer = do
   cells <- parseBeat beatCode
   guard $ length cells > 0
-  pure . syncLayer elapsedCells $ layer & layerBeat       .~ Stream.cycle cells
-                                        & layerCode       .~ beatCode
-                                        & layerParsedCode .~ cells
+  pure $ layer & layerBeat       .~ Stream.cycle cells
+               & layerCode       .~ beatCode
+               & layerParsedCode .~ cells
 
 -- | Change the offset of the layer
-modifyOffset :: Cell -> String -> Layer -> Maybe Layer
-modifyOffset elapsedCells offsetCode layer = do
+modifyOffset :: String -> Layer -> Maybe Layer
+modifyOffset offsetCode layer = do
   offset <- parseOffset offsetCode
-  pure $ syncLayer elapsedCells $ layer & layerCellOffset .~ offset
-                                        & layerOffsetCode .~ offsetCode
+  pure $ layer & layerCellOffset .~ offset
+               & layerOffsetCode .~ offsetCode
 
 -- | Fast-forward a layer to the current time position
 syncLayer :: Cell -> Layer -> Layer
@@ -113,7 +114,7 @@ syncLayer elapsedCells layer
     cellsToDrop            = remainingElapsed - wholeCycles * cycleSize
     cellCycle              = Stream.cycle $ layer^.layerParsedCode
     (cellPrefix, newCells) = dropCells cellsToDrop cellCycle
-    dropCells dc ( c :> cs )
+    dropCells !dc ( c :> cs )
       | c >= dc = ( c - dc, cs )
       | otherwise = dropCells ( dc - c ) cs
 

@@ -132,10 +132,14 @@ eventHandler st (Brick.VtyEvent ev) =
                              $ fromRational elapsedSamples
 
             modifyIORef' ( st^.jamStLayersRef )
-              $ \layers -> let mbLayer = join $ modifyBeat elapsedCells
+              $ \layers -> let mbLayer = join $ modifyBeat
                                             <$> mbBeatCode
                                             <*> layers ^? ix i
-                            in maybe layers (\x -> layers & ix i .~ x) mbLayer
+                            in maybe layers
+                                     ( \x -> syncLayer elapsedCells
+                                        <$> ( layers & ix i .~ x )
+                                     )
+                                     mbLayer
           Brick.continue st
         Just (LayerName i OffsetName) -> do
           let mbOffsetCode = concat . Edit.getEditContents
@@ -148,10 +152,14 @@ eventHandler st (Brick.VtyEvent ev) =
                              $ fromRational elapsedSamples
 
             modifyIORef' ( st^.jamStLayersRef )
-              $ \layers -> let mbLayer = join $ modifyOffset elapsedCells
+              $ \layers -> let mbLayer = join $ modifyOffset
                                             <$> mbOffsetCode
                                             <*> layers ^? ix i
-                            in maybe layers (\x -> layers & ix i .~ x) mbLayer
+                            in maybe layers
+                                     ( \x -> syncLayer elapsedCells
+                                        <$> ( layers & ix i .~ x )
+                                     )
+                                     mbLayer
           Brick.continue st
 
         Just (LayerName i NoteName) -> do
