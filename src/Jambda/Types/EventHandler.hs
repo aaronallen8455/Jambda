@@ -15,13 +15,14 @@ import            Control.Applicative (empty, (<|>), Alternative)
 
 import qualified  Brick
 
-import            Jambda.Types.JamState (JamState, Name)
+import            Jambda.Types.JamState (JamState)
+import            Jambda.Types.Name (Name)
 
 type Handler st n = MaybeT ( Brick.EventM n ) ( Brick.Next st )
 
 type EventHandler st n = forall e. st -> Brick.BrickEvent n e -> Handler st n
 
-type JambdaHandler = forall e. EventHandler JamState Name
+type JambdaHandler = EventHandler JamState Name
 
 runEventHandler :: EventHandler st n -> st -> Brick.BrickEvent n e -> Brick.EventM n ( Brick.Next st )
 runEventHandler h st ev =

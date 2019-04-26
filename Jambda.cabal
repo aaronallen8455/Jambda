@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 96ce4ddf5e8d1096919edf9ecfc7940b40c8da45e2818693507ae897b01504fe
+-- hash: 40c162ba90a2ca0740b80c5547e51ab0dac955250b7bd7012e91e287ecd0fef3
 
 name:           Jambda
 version:        0.1.0.0
@@ -41,6 +41,7 @@ executable Jambda-exe
       Jambda.Types.JamState
       Jambda.Types.Layer
       Jambda.Types.LayerWidget
+      Jambda.Types.Name
       Jambda.Types.Newtypes
       Jambda.Types.Pitch
       Jambda.Types.Semaphore
