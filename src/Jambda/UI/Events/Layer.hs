@@ -20,7 +20,7 @@ import            Jambda.UI.Layer (handleLayerWidgetEvent)
 
 handler :: JambdaHandler
 handler = mouse
-      <-> keystroke
+      >|< keystroke
 
 mouse :: JambdaHandler
 mouse st ( Brick.MouseDown ( LayerName i DeleteName ) _ _ _ ) = do

@@ -22,7 +22,7 @@ import            Jambda.UI.Layer (mkLayerWidget)
 
 handler :: JambdaHandler
 handler = keystroke
-      <-> mouse
+      >|< mouse
 
 keystroke :: JambdaHandler
 keystroke st ( Brick.VtyEvent ev )

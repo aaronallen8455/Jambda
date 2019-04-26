@@ -6,7 +6,7 @@ module Jambda.Types.EventHandler
   , continue
   , halt
   , empty
-  , (<->)
+  , (>|<)
   ) where
 
 import            Control.Monad.Trans.Maybe
@@ -33,6 +33,6 @@ continue = lift . Brick.continue
 halt :: MonadTrans m => st -> m ( Brick.EventM n ) ( Brick.Next st )
 halt = lift . Brick.halt
 
-{-# INLINE (<->) #-}
-(<->) :: EventHandler st n -> EventHandler st n -> EventHandler st n
-a <-> b = \st ev -> a st ev <|> b st ev
+{-# INLINE (>|<) #-}
+(>|<) :: EventHandler st n -> EventHandler st n -> EventHandler st n
+a >|< b = \st ev -> a st ev <|> b st ev

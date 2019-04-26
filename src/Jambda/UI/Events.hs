@@ -1,4 +1,3 @@
-{-# LANGUAGE RankNTypes #-}
 module Jambda.UI.Events
   ( eventHandler
   ) where
@@ -17,5 +16,5 @@ eventHandler = runEventHandler handler
 
 handler :: JambdaHandler
 handler = Base.handler
-      <-> Layer.handler
-      <-> Transport.handler
+      >|< Layer.handler
+      >|< Transport.handler
