@@ -14,11 +14,7 @@ import qualified SDL
 import Control.Lens
 
 import Jambda.Types
-import Jambda.Data.Parsers (parseBeat, parseCell)
-import Jambda.Data.Layer (newLayer, readChunk)
-import Jambda.Data.Conversions (numSamplesToCells)
-import Jambda.Data.Constants (sampleRate)
-import Jambda.Data.Stream (linearTaper, silence, sineWave)
+import Jambda.Data.Layer (readChunk)
 
 audioCallback :: Semaphore
               -> IORef ( Map.IntMap Layer )

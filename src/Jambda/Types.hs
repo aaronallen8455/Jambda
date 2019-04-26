@@ -6,6 +6,7 @@ module Jambda.Types
   , module Jambda.Types.Pitch
   , module Jambda.Types.LayerWidget
   , module Jambda.Types.EventHandler
+  , module Jambda.Types.Cell
   ) where
 
 import            Jambda.Types.Layer
@@ -15,3 +16,4 @@ import            Jambda.Types.Semaphore
 import            Jambda.Types.Pitch
 import            Jambda.Types.LayerWidget
 import            Jambda.Types.EventHandler
+import            Jambda.Types.Cell

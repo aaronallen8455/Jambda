@@ -1,8 +1,8 @@
 module Jambda.Data.Conversions
-  ( numSamplesForCell
-  , numSamplesToCells
-  , cellToSecs
-  , secToCells
+  ( numSamplesForCellValue
+  , numSamplesToCellValue
+  , cellValueToSecs
+  , secToCellValue
   , numSampsToSecs
   , secToNumSamps
   ) where
@@ -12,21 +12,21 @@ import Jambda.Data.Constants (sampleRate)
 
 -- | Get the number of whole samples from a cell value and also
 -- return the cell value corresponding to the leftover fractional sample
-numSamplesForCell :: BPM -> Cell -> (Int, Cell)
-numSamplesForCell bpm cell = (wholeSamps, remCell) where
-  samples = secToNumSamps $ cellToSecs bpm cell
+numSamplesForCellValue :: BPM -> CellValue -> (Int, CellValue)
+numSamplesForCellValue bpm cell = (wholeSamps, remCell) where
+  samples = secToNumSamps $ cellValueToSecs bpm cell
   wholeSamps = floor samples
-  remCell = numSamplesToCells bpm $ samples - fromIntegral wholeSamps
+  remCell = numSamplesToCellValue bpm $ samples - fromIntegral wholeSamps
 
-numSamplesToCells :: BPM -> Double -> Cell
-numSamplesToCells bpm = secToCells bpm . numSampsToSecs
+numSamplesToCellValue :: BPM -> Double -> CellValue
+numSamplesToCellValue bpm = secToCellValue bpm . numSampsToSecs
 
-cellToSecs :: BPM -> Cell -> Sec
-cellToSecs (BPM bpm) (Cell cell) = Sec $
+cellValueToSecs :: BPM -> CellValue -> Sec
+cellValueToSecs (BPM bpm) (CellValue cell) = Sec $
   fromRational ( 1 / ( bpm / 60 ) ) * cell
 
-secToCells :: BPM -> Sec -> Cell
-secToCells (BPM bpm) (Sec sec) = Cell $ fromRational ( bpm / 60 ) * sec
+secToCellValue :: BPM -> Sec -> CellValue
+secToCellValue (BPM bpm) (Sec sec) = CellValue $ fromRational ( bpm / 60 ) * sec
 
 numSampsToSecs :: Double -> Sec
 numSampsToSecs nsamps = Sec $

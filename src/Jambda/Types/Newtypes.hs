@@ -2,7 +2,7 @@
 {-# LANGUAGE TypeApplications #-}
 module Jambda.Types.Newtypes
   ( Sample(..)
-  , Cell(..)
+  , CellValue(..)
   , Freq(..)
   , BPM(..)
   , Sec(..)
@@ -15,9 +15,9 @@ import Text.Printf
 
 newtype Sample = Sample { getSample :: Float } deriving (Show, Eq, Num, Ord, Storable, Enum)
 
-newtype Cell = Cell { getCell :: Double } deriving (Eq, Num, Ord, Fractional, Real, RealFrac)
-instance Show Cell where
-  show (Cell c) = show c
+newtype CellValue = CellValue { getCellValue :: Double } deriving (Eq, Num, Ord, Fractional, Real, RealFrac)
+instance Show CellValue where
+  show (CellValue c) = show c
 
 newtype Freq = Freq { getFreq :: Double } deriving (Show, Eq, Ord, Num)
 

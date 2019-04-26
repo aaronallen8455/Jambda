@@ -15,7 +15,7 @@ import qualified  Data.CircularList as CList
 import qualified  Graphics.Vty as Vty
 
 import            Jambda.Types
-import            Jambda.Data (modifyBeat, modifyOffset, modifySource, numSamplesToCells, syncLayer)
+import            Jambda.Data (modifyBeat, modifyOffset, modifySource, numSamplesToCellValue, syncLayer)
 import            Jambda.UI.Layer (handleLayerWidgetEvent)
 
 handler :: JambdaHandler
@@ -48,7 +48,7 @@ keystroke st ( Brick.VtyEvent ( Vty.EvKey Vty.KEnter [] ) )
       liftIO . signalSemaphore ( st^.jamStSemaphore ) $ do
         elapsedSamples <- readIORef ( st^.jamStElapsedSamples )
         tempo <- readIORef ( st^.jamStTempoRef )
-        let elapsedCells = numSamplesToCells tempo
+        let elapsedCells = numSamplesToCellValue tempo
                          $ fromRational elapsedSamples
 
         modifyIORef' ( st^.jamStLayersRef )
@@ -69,7 +69,7 @@ keystroke st ( Brick.VtyEvent ( Vty.EvKey Vty.KEnter [] ) )
       liftIO . signalSemaphore ( st^.jamStSemaphore ) $ do
         elapsedSamples <- liftIO $ readIORef ( st^.jamStElapsedSamples )
         tempo <- liftIO $ readIORef ( st^.jamStTempoRef )
-        let elapsedCells = numSamplesToCells tempo
+        let elapsedCells = numSamplesToCellValue tempo
                          $ fromRational elapsedSamples
 
         modifyIORef' ( st^.jamStLayersRef )

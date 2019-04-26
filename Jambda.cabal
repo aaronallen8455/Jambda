@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 986f72eebee90a2d2b1ab43777923510edc64b729fcd4d1c3470d807c33a3255
+-- hash: 96ce4ddf5e8d1096919edf9ecfc7940b40c8da45e2818693507ae897b01504fe
 
 name:           Jambda
 version:        0.1.0.0
@@ -36,6 +36,7 @@ executable Jambda-exe
       Jambda.Data.Parsers
       Jambda.Data.Stream
       Jambda.Types
+      Jambda.Types.Cell
       Jambda.Types.EventHandler
       Jambda.Types.JamState
       Jambda.Types.Layer

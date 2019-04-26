@@ -17,7 +17,7 @@ import qualified  Brick.Widgets.Edit as Edit
 import qualified  Graphics.Vty as Vty
 
 import            Jambda.Types
-import            Jambda.Data (resetLayer, numSamplesToCells, syncLayer, newLayer)
+import            Jambda.Data (resetLayer, numSamplesToCellValue, syncLayer, newLayer)
 import            Jambda.UI.Layer (mkLayerWidget)
 
 handler :: JambdaHandler
@@ -79,7 +79,7 @@ mouse st ( Brick.MouseDown n _ _ _ ) =
         elapsedSamples <- readIORef ( st^.jamStElapsedSamples )
         tempo <- readIORef ( st^.jamStTempoRef )
 
-        let elapsedCells = numSamplesToCells tempo ( fromRational elapsedSamples )
+        let elapsedCells = numSamplesToCellValue tempo ( fromRational elapsedSamples )
             mbNewIx = succ . fst <$> Map.lookupMax ( st^.jamStLayerWidgets )
             newIx = maybe 0 id mbNewIx
             layer = syncLayer elapsedCells . newLayer $ Pitch ANat 4 :: Layer

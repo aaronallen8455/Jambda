@@ -31,16 +31,18 @@ silence = pure 0
 -- | Applies a linear fade out to a stream over the
 -- specified number of seconds.
 linearTaper :: Double -> Stream Sample -> [Sample]
-linearTaper secs = zipWith (*) [1, 1 - step .. 0] . Stream.takeWhile (const True) where
-  step = Sample . double2Float $ 1 / secs / sampleRate
+linearTaper secs = zipWith (*) [1, 1 - step .. 0]
+                 . Stream.takeWhile (const True)
+  where
+    step = Sample . double2Float $ 1 / secs / sampleRate
 
 -- | Produces a new sinewave at the specified frequency which
 -- is phased so as to match the contour and current value
 -- of the preceding stream.
-dovetail :: Freq -> Stream Sample -> Stream Sample
-dovetail freq ( s1 :> s2 :> _ ) = sineWave freq phase
+dovetail :: Freq -> [Sample] -> Stream Sample
+dovetail freq ( s1:s2:_ ) = sineWave freq phase
   where
-    asc = s2 > s1
+    asc = s2 >= s1
     quadrant1 = asc && s1 >= 0
     quadrant2 = not asc && s1 > 0
     quadrant3 = not asc && s1 <= 0
@@ -51,3 +53,10 @@ dovetail freq ( s1 :> s2 :> _ ) = sineWave freq phase
           | quadrant3 = ( -pi - x ) / ( 2 * pi ) * sampPerLen
           | otherwise = x / ( 2 * pi ) * sampPerLen
 
+dovetail freq ( s1:_ ) = sineWave freq phase
+  where
+    sampPerLen = sampleRate / getFreq freq
+    x = asin . float2Double $ getSample s1
+    phase = x / ( 2 * pi ) * sampPerLen
+
+dovetail freq [] = sineWave freq 0

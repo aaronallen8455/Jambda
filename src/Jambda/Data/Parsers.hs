@@ -24,14 +24,14 @@ import            Jambda.Types
 
 type Parser = Parsec Void String
 
-parseBeat :: String -> Maybe (NonEmpty Cell)
+parseBeat :: String -> Maybe (NonEmpty Cell')
 parseBeat = parseMaybe ( beatP <* eof )
 
-parseCell :: String -> Maybe Cell
+parseCell :: String -> Maybe Cell'
 parseCell = parseMaybe ( cellP ( > 0 ) )
 
-parseOffset :: String -> Maybe Cell
-parseOffset = parseMaybe ( cellP ( >= 0 ) )
+parseOffset :: String -> Maybe CellValue
+parseOffset = parseMaybe ( cellValueP ( >= 0 ) )
 
 parseBpm :: String -> Maybe BPM
 parseBpm = parseMaybe bpmP
@@ -90,56 +90,62 @@ expressionP = fmap ( uncurry (+) )
                 then failure ( Just . Tokens $ fromList "divide by 0" ) mempty
                 else mult ( 1 / num )
 
-cellP :: (Double -> Bool) -> Parser Cell
-cellP pred = do
+cellValueP :: (Double -> Bool) -> Parser CellValue
+cellValueP pred = do
   v <- expressionP
   guard $ pred v
-  pure $ Cell v
+  pure $ CellValue v
 
-repCellP :: Parser (NonEmpty Cell)
+cellP :: (Double -> Bool) -> Parser Cell'
+cellP pred = do
+  v <- cellValueP pred
+  p <- optional $ char '@' *> pitchP <* space
+  pure $ Cell v p
+
+repCellP :: Parser (NonEmpty Cell')
 repCellP = nonEmptyGuard $ do
   cell <- cellP ( > 0 ) <* space
-  guard $ cell > 0
+  guard $ cell^.cellValue > 0
   ( reps, ltm ) <- fmap ( maybe ( 1, 0 ) id ) . optional $ do
     reps <- between ( char '(' <* space )
                     ( char ')' <* space )
                     intP
     ltm <- maybe 0 id <$> optional expressionP <* space
-    pure ( reps, Cell ltm )
-  guard $ reps > 0 && cell + ltm > 0
-  pure . reverse $ cell + ltm : replicate ( reps - 1 ) cell
+    pure ( reps, CellValue ltm )
+  guard $ reps > 0 && cell^.cellValue > 0 && cell^.cellValue + ltm > 0
+  pure . reverse $ fmap ( + ltm ) cell : replicate ( reps - 1 ) cell
 
-blockRepP :: Parser (NonEmpty Cell)
+blockRepP :: Parser (NonEmpty Cell')
 blockRepP = do
     inner <- between ( char '[' <* space )
                      ( char ']' <* space )
                      beatP
     (reps, ltm) <- tagP <* space
     let ( lastCell :| rest ) = NonEmpty.reverse inner
-    guard $ reps > 0 && lastCell + ltm > 0
+    guard $ reps > 0 && ltm > 0
     pure . sconcat . NonEmpty.reverse
-          $ ( NonEmpty.reverse $ lastCell + ltm :| rest )
+          $ ( NonEmpty.reverse $ fmap ( + ltm ) lastCell :| rest )
          :| ( replicate ( reps - 1 ) inner )
   where
     tagP = try simple <|> complex
-    simple = (,) <$> intP <*> pure 0
+    simple = (,) <$> intP <*> pure ( CellValue 0 )
     complex = do
       reps <- between ( char '(' <* space )
                       ( char ')' <* space )
                       intP
       ltm <- expressionP
-      pure (reps, Cell ltm)
+      pure (reps, CellValue ltm)
 
-blockMultP :: Parser (NonEmpty Cell)
+blockMultP :: Parser (NonEmpty Cell')
 blockMultP = do
   inner <- between ( char '{' <* space )
                    ( char '}' <* space )
                    beatP
-  factor <- Cell <$> expressionP
+  factor <- CellValue <$> expressionP
   guard $ factor > 0
-  pure $ fmap ( * factor ) inner
+  pure $ ( fmap . fmap ) ( * factor ) inner
 
-beatP :: Parser (NonEmpty Cell)
+beatP :: Parser (NonEmpty Cell')
 beatP = fmap sconcat . nonEmptyGuard
       $ space *> (   try repCellP
                  <|> try blockRepP
