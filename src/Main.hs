@@ -2,7 +2,8 @@
 {-# LANGUAGE RecordWildCards #-}
 module Main where
 
-import Control.Monad (void)
+import Control.Monad (void, when)
+import            Control.Monad.IO.Class (liftIO)
 import qualified  Data.IntMap as Map
 import qualified Data.Vector.Storable.Mutable as MV
 import Data.IORef
@@ -43,7 +44,9 @@ main = do
                       , appHandleEvent = eventHandler
                       , appStartEvent = \s -> do
                           vty <- Brick.getVtyHandle
-                          Vty.setMode (Vty.outputIface vty) Vty.Mouse True
+                          let output = Vty.outputIface vty
+                          when ( Vty.supportsMode output Vty.Mouse ) $
+                            liftIO $ Vty.setMode output Vty.Mouse True
                           pure s
                       , appAttrMap = const $ Brick.attrMap Vty.defAttr []
                       }

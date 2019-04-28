@@ -25,13 +25,17 @@ drawUI st = [ui] where
                                            (Edit.renderEditor (str . unlines))
                                            f
   tempoField     = hLimit 12 $ drawEditor "Tempo" $ st^.jamStTempoField
-  playButton     = clickable PlayName $ mkButton "Play"
-  stopButton     = clickable StopName $ mkButton "Stop"
-  addLayerButton = clickable AddLayerName $ mkButton "Add Layer"
+  playButton     = mkButton "Play" PlayName
+  stopButton     = mkButton "Stop" StopName
+  addLayerButton = mkButton "Add Layer" AddLayerName
   ui           = layerUI
              <=> ( tempoField <+> playButton <+> stopButton <+> addLayerButton )
 
-mkButton :: String -> Widget Name
-mkButton label =
-  withBorderStyle Border.unicodeBold . Border.border . padLeftRight 1 $ str label
+mkButton :: String -> Name -> Widget Name
+mkButton label name
+  = withBorderStyle Border.unicodeBold
+  . clickable name
+  . Border.border
+  . padLeftRight 1
+  $ str label
 
