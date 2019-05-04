@@ -4,6 +4,7 @@ module Jambda.UI.Events.Transport
 
 import            Control.Monad.Trans (lift)
 import            Control.Monad.IO.Class (liftIO)
+import            Control.Monad (join)
 import            Control.Lens
 import            Data.Functor (void)
 import qualified  Data.IntMap as Map
@@ -13,12 +14,13 @@ import qualified  Data.Text.Zipper as TextZipper
 import qualified  Data.CircularList as CList
 import qualified  Brick
 import qualified  Brick.Focus as Focus
-import qualified  Brick.Widgets.Edit as Edit
 import qualified  Graphics.Vty as Vty
 
 import            Jambda.Types
-import            Jambda.Data (resetLayer, numSamplesToCellValue, syncLayer, newLayer)
+import            Jambda.Data (newLayer, numSamplesToCellValue, parseBpm, resetLayer, syncLayer)
 import            Jambda.UI.Layer (mkLayerWidget)
+import            Jambda.UI.Editor (applyEdit, getEditorContents, handleEditorEvent, setEditorAttr)
+import            Jambda.UI.Draw (errorAttr)
 
 handler :: JambdaHandler
 handler = keystroke
@@ -32,11 +34,13 @@ keystroke st ( Brick.VtyEvent ev )
 
         Vty.EvKey Vty.KDown [] -> modifyTempo pred
 
+        Vty.EvKey Vty.KEnter [] -> applyTempoChange
+
         _ ->
           ( continue =<< ) . lift $
             Brick.handleEventLensed st
                                     jamStTempoField
-                                    Edit.handleEditorEvent
+                                    handleEditorEvent
                                     ev
   where
     focus = Focus.focusGetCurrent $ st^.jamStFocus
@@ -52,11 +56,22 @@ keystroke st ( Brick.VtyEvent ev )
         pure $ bpmToString newTempo
 
       let st' = st & jamStTempoField %~
-                     ( Edit.applyEdit
+                     ( applyEdit
                      . const $ TextZipper.stringZipper [ newTempoStr ]
                                                        ( Just 1 )
                      )
       continue st'
+
+    applyTempoChange = do
+      let tempoStr = getEditorContents $ st^.jamStTempoField
+          mbTempo = parseBpm tempoStr
+
+      case mbTempo of
+        Just tempo ->
+          fmap ( jamStTempoField %~ setEditorAttr mempty )
+            <$> modifyTempo (const tempo)
+        Nothing ->
+          continue $ st & jamStTempoField %~ setEditorAttr errorAttr
 
 keystroke _ _ = empty
 

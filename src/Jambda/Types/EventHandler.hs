@@ -9,9 +9,9 @@ module Jambda.Types.EventHandler
   , (>|<)
   ) where
 
+import            Control.Applicative ((<|>), empty)
 import            Control.Monad.Trans.Maybe
 import            Control.Monad.Trans (MonadTrans, lift)
-import            Control.Applicative (empty, (<|>), Alternative)
 
 import qualified  Brick
 

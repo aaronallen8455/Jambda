@@ -3,20 +3,24 @@ module Jambda.UI.Events.Layer
   ) where
 
 import            Control.Monad.Trans (lift)
+import            Control.Monad.Trans.Maybe (MaybeT(..), runMaybeT)
 import            Control.Monad.IO.Class (liftIO)
 import            Control.Monad (join)
 import            Control.Lens
-import            Data.IORef (modifyIORef', readIORef)
+import            Data.Maybe (isJust)
+import            Data.IORef (modifyIORef', readIORef, writeIORef)
+import qualified  Data.Stream.Infinite as Stream
 
 import qualified  Brick
 import qualified  Brick.Focus as Focus
-import qualified  Brick.Widgets.Edit as Edit
 import qualified  Data.CircularList as CList
 import qualified  Graphics.Vty as Vty
 
 import            Jambda.Types
-import            Jambda.Data (modifyBeat, modifyOffset, modifySource, numSamplesToCellValue, syncLayer)
+import            Jambda.Data (applyLayerBeatChange, applyLayerOffsetChange, applyLayerSourceChange)
+import            Jambda.UI.Draw (errorAttr)
 import            Jambda.UI.Layer (handleLayerWidgetEvent)
+import            Jambda.UI.Editor (getEditorContents, setEditorAttr)
 
 handler :: JambdaHandler
 handler = mouse
@@ -29,7 +33,9 @@ mouse st ( Brick.MouseDown ( LayerName i DeleteName ) _ _ _ ) = do
 
   let nameFilter (LayerName li _) | li == i = False
       nameFilter _ = True
-      st' = st & jamStFocus %~ ( Focus.focusRingModify ( CList.filterR nameFilter ) )
+      st' = st & jamStFocus %~ ( Focus.focusRingModify
+                                   ( CList.filterR nameFilter )
+                               )
                & jamStLayerWidgets %~ sans i
 
   continue st'
@@ -42,58 +48,25 @@ mouse _ _ = empty
 keystroke :: JambdaHandler
 keystroke st ( Brick.VtyEvent ( Vty.EvKey Vty.KEnter [] ) )
   | Just ( LayerName i BeatCodeName ) <- focus = do
-      let mbBeatCode = concat . Edit.getEditContents
-                   <$> st ^? jamStLayerWidgets.ix i . layerWidgetCodeField
+      isValid <- liftIO $ applyLayerBeatChange st i
 
-      liftIO . signalSemaphore ( st^.jamStSemaphore ) $ do
-        elapsedSamples <- readIORef ( st^.jamStElapsedSamples )
-        tempo <- readIORef ( st^.jamStTempoRef )
-        let elapsedCells = numSamplesToCellValue tempo
-                         $ fromRational elapsedSamples
-
-        modifyIORef' ( st^.jamStLayersRef )
-          $ \layers -> let mbLayer = join $ modifyBeat
-                                        <$> mbBeatCode
-                                        <*> layers ^? ix i
-                        in maybe layers
-                                 ( \x -> syncLayer elapsedCells
-                                    <$> ( layers & ix i .~ x )
-                                 )
-                                 mbLayer
-      continue st
+      continue $
+        st & jamStLayerWidgets.ix i . layerWidgetCodeField
+               %~ setEditorAttr ( if isValid then mempty else errorAttr )
 
   | Just ( LayerName i OffsetName ) <- focus = do
-      let mbOffsetCode = concat . Edit.getEditContents
-                     <$> st ^? jamStLayerWidgets.ix i . layerWidgetOffsetField
+      isValid <- liftIO $ applyLayerOffsetChange st i
 
-      liftIO . signalSemaphore ( st^.jamStSemaphore ) $ do
-        elapsedSamples <- liftIO $ readIORef ( st^.jamStElapsedSamples )
-        tempo <- liftIO $ readIORef ( st^.jamStTempoRef )
-        let elapsedCells = numSamplesToCellValue tempo
-                         $ fromRational elapsedSamples
-
-        modifyIORef' ( st^.jamStLayersRef )
-          $ \layers -> let mbLayer = join $ modifyOffset
-                                        <$> mbOffsetCode
-                                        <*> layers ^? ix i
-                        in maybe layers
-                                 ( \x -> syncLayer elapsedCells
-                                    <$> ( layers & ix i .~ x )
-                                 )
-                                 mbLayer
-      continue st
+      continue $
+        st & jamStLayerWidgets.ix i . layerWidgetOffsetField
+               %~ setEditorAttr ( if isValid then mempty else errorAttr )
 
   | Just ( LayerName i NoteName ) <- focus = do
-      let mbNoteStr = concat . Edit.getEditContents
-                  <$> st ^? jamStLayerWidgets.ix i . layerWidgetSourceField
+      isValid <- liftIO $ applyLayerSourceChange st i
 
-      liftIO . modifyIORef' ( st^.jamStLayersRef )
-        $ \layers -> let mbLayer = join $ modifySource
-                                      <$> mbNoteStr
-                                      <*> layers ^? ix i
-                      in maybe layers ( \x -> layers & ix i .~ x ) mbLayer
-
-      continue st
+      continue $
+        st & jamStLayerWidgets.ix i . layerWidgetSourceField
+               %~ setEditorAttr ( if isValid then mempty else errorAttr )
   where
     focus = Focus.focusGetCurrent $ st^.jamStFocus
 
@@ -101,8 +74,8 @@ keystroke st ( Brick.VtyEvent ev )
   | Just ( LayerName n field ) <- focus =
       ( continue =<< ) . lift $
         Brick.handleEventLensed st
-                                (jamStLayerWidgets . at n)
-                                (handleLayerWidgetEvent field)
+                                ( jamStLayerWidgets . at n )
+                                ( handleLayerWidgetEvent field )
                                 ev
   where
     focus = Focus.focusGetCurrent $ st^.jamStFocus

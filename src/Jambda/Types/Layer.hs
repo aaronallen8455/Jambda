@@ -6,9 +6,8 @@ module Jambda.Types.Layer where
 import            Control.Lens hiding ((:>))
 import            Data.List.NonEmpty (NonEmpty)
 import            Data.Stream.Infinite (Stream(..))
-import qualified  Data.Stream.Infinite as Stream
 
-import            Jambda.Types.Newtypes (CellValue, Octave, Sample)
+import            Jambda.Types.Newtypes (CellValue, Sample)
 import            Jambda.Types.Pitch (Pitch)
 import            Jambda.Types.Cell (Cell')
 

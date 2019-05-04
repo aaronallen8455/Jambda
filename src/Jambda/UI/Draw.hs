@@ -1,19 +1,22 @@
 {-# LANGUAGE FlexibleContexts #-}
 module Jambda.UI.Draw
   ( drawUI
+  , errorAttr
+  , attributes
   ) where
 
 import qualified  Data.IntMap as Map
 import            Control.Lens
 
 import            Brick
-import qualified  Brick.Widgets.Edit as Edit
 import qualified  Brick.Widgets.Border as Border
 import qualified  Brick.Widgets.Border.Style as Border
 import qualified  Brick.Focus as Focus
+import qualified  Graphics.Vty as Vty
 
-import Jambda.Types
-import Jambda.UI.Layer (renderLayerWidget)
+import            Jambda.Types
+import            Jambda.UI.Layer (renderLayerWidget)
+import            Jambda.UI.Editor (renderEditor)
 
 drawUI :: JamState -> [Widget Name]
 drawUI st = [ui] where
@@ -21,8 +24,8 @@ drawUI st = [ui] where
   layerUI            = foldr (<=>) emptyWidget layerEditors
   drawEditor label f = withBorderStyle Border.unicode
                      . Border.borderWithLabel ( str label )
-                     $ Focus.withFocusRing (st^.jamStFocus)
-                                           (Edit.renderEditor (str . unlines))
+                     $ Focus.withFocusRing ( st^.jamStFocus )
+                                           renderEditor
                                            f
   tempoField     = hLimit 12 $ drawEditor "Tempo" $ st^.jamStTempoField
   playButton     = mkButton "Play" PlayName
@@ -39,3 +42,8 @@ mkButton label name
   . padLeftRight 1
   $ str label
 
+errorAttr :: AttrName
+errorAttr = Brick.attrName "error"
+
+attributes :: AttrMap
+attributes = Brick.attrMap Vty.defAttr [ ( errorAttr, Brick.bg Vty.red ) ]

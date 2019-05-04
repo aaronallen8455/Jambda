@@ -8,30 +8,23 @@ module Jambda.UI.Layer
   ) where
 
 import Control.Lens
-import Control.Monad (guard)
 
-import            Brick ((<+>), (<=>), EventM, Padding(Pad), Widget, clickable, hLimitPercent, handleEventLensed, joinBorders, padAll, padTop, str, withBorderStyle)
-import qualified  Brick.Widgets.Edit as E
+import            Brick ((<+>), EventM, Widget, clickable, hLimitPercent, handleEventLensed, joinBorders, padAll, str, withBorderStyle)
 import qualified  Brick.Focus as Focus
-import qualified  Brick.Widgets.Edit as Edit
 import qualified  Brick.Widgets.Border as Border
 import qualified  Brick.Widgets.Border.Style as Border
 import            Graphics.Vty.Input.Events (Event)
 
 import Jambda.Types
-import Jambda.Data (linearTaper, modifyBeat, modifyOffset, modifySource, parseBeat, parseCell, parsePitch, resetLayer, silence, sineWave)
-
-mkButton :: String -> Widget Name
-mkButton label =
-  withBorderStyle Border.unicodeBold . Border.border $ str label
+import Jambda.UI.Editor (editor, renderEditor, handleEditorEvent)
 
 mkLayerWidget :: Int -> Layer -> LayerWidget Name
 mkLayerWidget id' layer =
   LayerWidget
     { _layerWidgetId = id'
-    , _layerWidgetCodeField = E.editor ( LayerName id' BeatCodeName ) ( Just 1 ) ( layer^.layerCode )
-    , _layerWidgetOffsetField = E.editor ( LayerName id' OffsetName ) ( Just 1 ) ( layer^.layerOffsetCode )
-    , _layerWidgetSourceField = E.editor ( LayerName id' NoteName ) ( Just 1 ) ( show $ layer^.layerSourceType )
+    , _layerWidgetCodeField = editor ( LayerName id' BeatCodeName ) ( layer^.layerCode )
+    , _layerWidgetOffsetField = editor ( LayerName id' OffsetName ) ( layer^.layerOffsetCode )
+    , _layerWidgetSourceField = editor ( LayerName id' NoteName ) ( show $ layer^.layerSourceType )
     , _layerWidgetDelete = clickable ( LayerName id' DeleteName ) . padAll 1 $ str "[-X-]"
     }
 
@@ -51,15 +44,15 @@ renderLayerWidget st index LayerWidget{..} = joinBorders
 
     drawEditor label f = withBorderStyle Border.unicodeBold
                        . Border.borderWithLabel ( str label )
-                       $ Focus.withFocusRing (st^.jamStFocus) (Edit.renderEditor (str . unlines)) f
+                       $ Focus.withFocusRing (st^.jamStFocus) renderEditor f
 
 handleLayerWidgetEvent :: LayerFieldName -> Event -> Maybe (LayerWidget n) -> EventM n (Maybe (LayerWidget n))
 handleLayerWidgetEvent _ _ Nothing = pure Nothing
 handleLayerWidgetEvent field ev (Just widget) =
   Just <$> case field of
-    BeatCodeName -> handleEventLensed widget layerWidgetCodeField Edit.handleEditorEvent ev
-    OffsetName   -> handleEventLensed widget layerWidgetOffsetField Edit.handleEditorEvent ev
-    NoteName     -> handleEventLensed widget layerWidgetSourceField Edit.handleEditorEvent ev
+    BeatCodeName -> handleEventLensed widget layerWidgetCodeField handleEditorEvent ev
+    OffsetName   -> handleEventLensed widget layerWidgetOffsetField handleEditorEvent ev
+    NoteName     -> handleEventLensed widget layerWidgetSourceField handleEditorEvent ev
     DeleteName   -> pure widget
 
 

@@ -5,25 +5,28 @@ module Jambda.Data.Layer
   ( newLayer
   , readChunk
   , getSamples
-  , modifyBeat
-  , modifyOffset
-  , modifySource
   , syncLayer
   , resetLayer
+  , applyLayerBeatChange
+  , applyLayerOffsetChange
+  , applyLayerSourceChange
   ) where
 
 import            Control.Lens hiding ((:>))
 import            Control.Monad (guard)
-import            Data.List.NonEmpty (NonEmpty(..))
+import            Control.Monad.Trans.Maybe (MaybeT(..), runMaybeT)
+import            Control.Monad.IO.Class (liftIO)
 import            Data.Stream.Infinite (Stream(..))
 import qualified  Data.Stream.Infinite as Stream
-import qualified  Data.Stream.Infinite as Stream
+import            Data.IORef (readIORef, modifyIORef')
+import            Data.Maybe (isJust)
 
 import            Jambda.Data.Constants (taperLength)
 import            Jambda.Data.Conversions (numSamplesForCellValue, numSamplesToCellValue)
-import            Jambda.Data.Parsers (parseBeat, parseCell, parseOffset, parsePitch)
+import            Jambda.Data.Parsers (parseBeat, parseOffset, parsePitch)
 import            Jambda.Data.Stream (dovetail, linearTaper, silence, sineWave)
 import            Jambda.Types
+import            Jambda.UI.Editor (getEditorContents)
 
 -- | Create a new layer with the given Pitch using defaults
 -- for all other fields
@@ -86,7 +89,6 @@ getSamples bpm layer nsamps prevSource
                        <*> Just prevSource
             )
     ( wholeCellSamps, leftover ) = numSamplesForCellValue bpm ( c^.cellValue )
-    diff = wholeCellSamps - nsamps
     newCellPrefix = c^.cellValue
                   - numSamplesToCellValue bpm ( fromIntegral nsamps )
                   + leftover
@@ -94,21 +96,66 @@ getSamples bpm layer nsamps prevSource
                      & layerCellPrefix   .~ newCellPrefix
                      & layerSourcePrefix .~ (drop nsamps source)
 
--- | Change the beatcode of a Layer
-modifyBeat :: String -> Layer -> Maybe Layer
-modifyBeat beatCode layer = do
-  cells <- parseBeat beatCode
-  guard $ length cells > 0
-  pure $ layer & layerBeat       .~ Stream.cycle cells
-               & layerCode       .~ beatCode
-               & layerParsedCode .~ cells
+-- | Modify the layer at a specific index
+modifyLayer :: JamState
+            -> Int
+            -> (Layer -> Layer)
+            -> IO ()
+modifyLayer st i modifier = signalSemaphore ( st^.jamStSemaphore ) $ do
+  elapsedSamples <- readIORef ( st^.jamStElapsedSamples )
+  tempo <- readIORef ( st^.jamStTempoRef )
 
--- | Change the offset of the layer
-modifyOffset :: String -> Layer -> Maybe Layer
-modifyOffset offsetCode layer = do
-  offset <- parseOffset offsetCode
-  pure $ layer & layerCellOffset .~ offset
-               & layerOffsetCode .~ offsetCode
+  let elapsedCells = numSamplesToCellValue tempo
+                   $ fromRational elapsedSamples
+
+  modifyIORef' ( st^.jamStLayersRef ) $ \layers ->
+    ( syncLayer elapsedCells ) <$> layers & ix i %~ modifier
+
+-- | Apply the current contents of the beat code editor for a layer.
+-- return true if the beat code is valid.
+applyLayerBeatChange :: JamState
+                     -> Int
+                     -> IO Bool
+applyLayerBeatChange st i = fmap isJust . runMaybeT $ do
+  beatCode <- hoistMaybe $ getEditorContents
+          <$> st ^? jamStLayerWidgets.ix i . layerWidgetCodeField
+
+  cells <- hoistMaybe $ parseBeat beatCode
+
+  liftIO $ modifyLayer st i ( ( layerBeat .~ Stream.cycle cells )
+                            . ( layerCode .~ beatCode )
+                            . ( layerParsedCode .~ cells )
+                            )
+
+-- | Apply the current contents of the offset field of a layer
+-- returns true if beat code is valid.
+applyLayerOffsetChange :: JamState
+                       -> Int
+                       -> IO Bool
+applyLayerOffsetChange st i = fmap isJust . runMaybeT $ do
+  offsetCode <- hoistMaybe $ getEditorContents
+            <$> st ^? jamStLayerWidgets.ix i . layerWidgetOffsetField
+
+  cellValue <- hoistMaybe $ parseOffset offsetCode
+
+  liftIO $ modifyLayer st i ( ( layerCellOffset .~ cellValue )
+                            . ( layerOffsetCode .~ offsetCode )
+                            )
+
+-- | Apply the contents of the source field to the layer
+-- returning true if valid
+applyLayerSourceChange :: JamState
+                       -> Int
+                       -> IO Bool
+applyLayerSourceChange st i = fmap isJust . runMaybeT $ do
+  noteStr <- hoistMaybe $ getEditorContents
+         <$> st ^? jamStLayerWidgets.ix i . layerWidgetSourceField
+
+  pitch <- hoistMaybe $ parsePitch noteStr
+
+  liftIO . modifyIORef' ( st^.jamStLayersRef ) $ \layers ->
+    let mbLayer = modifySource pitch <$> layers ^? ix i
+     in maybe layers ( \x -> layers & ix i .~ x ) mbLayer
 
 -- | Fast-forward a layer to the current time position
 syncLayer :: CellValue -> Layer -> Layer
@@ -131,15 +178,14 @@ syncLayer elapsedCells layer
       | otherwise = dropCells ( dc - c^.cellValue ) cs
 
 -- | Change the sound source (Pitch) of the layer
-modifySource :: String -> Layer -> Maybe Layer
-modifySource noteStr layer = do
-  pitch <- parsePitch noteStr
+modifySource :: Pitch -> Layer -> Layer
+modifySource pitch layer = do
   let freq = pitchToFreq pitch
       wave = sineWave freq 0
       newSource = linearTaper taperLength wave
 
-  pure $ layer & layerSource     .~ newSource
-               & layerSourceType .~ pitch
+   in layer & layerSource     .~ newSource
+            & layerSourceType .~ pitch
 
 -- | Reset a layer to it's initial state
 resetLayer :: Layer -> Layer
@@ -148,3 +194,5 @@ resetLayer layer =
         & layerCellPrefix   .~ ( layer^.layerCellOffset )
         & layerSourcePrefix .~ []
 
+hoistMaybe :: Applicative m => Maybe a -> MaybeT m a
+hoistMaybe = MaybeT . pure

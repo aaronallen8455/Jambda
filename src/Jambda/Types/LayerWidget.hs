@@ -4,13 +4,14 @@ module Jambda.Types.LayerWidget where
 import Control.Lens
 
 import            Brick (Widget)
-import qualified  Brick.Widgets.Edit as E
+
+import            Jambda.UI.Editor
 
 data LayerWidget n = LayerWidget
   { _layerWidgetId          :: !Int
-  , _layerWidgetCodeField   :: !(E.Editor String n)
-  , _layerWidgetOffsetField :: !(E.Editor String n)
-  , _layerWidgetSourceField :: !(E.Editor String n)
+  , _layerWidgetCodeField   :: !(Editor n)
+  , _layerWidgetOffsetField :: !(Editor n)
+  , _layerWidgetSourceField :: !(Editor n)
   , _layerWidgetDelete      :: !(Widget n)
   }
 

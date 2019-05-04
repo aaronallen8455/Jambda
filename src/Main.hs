@@ -2,7 +2,7 @@
 {-# LANGUAGE RecordWildCards #-}
 module Main where
 
-import Control.Monad (void, when)
+import Control.Monad (when)
 import            Control.Monad.IO.Class (liftIO)
 import qualified  Data.IntMap as Map
 import qualified Data.Vector.Storable.Mutable as MV
@@ -17,7 +17,7 @@ import qualified Graphics.Vty as Vty
 
 import Jambda.Types
 import Jambda.Data (audioCallback, newLayer)
-import Jambda.UI (drawUI, eventHandler, mkLayerWidget)
+import Jambda.UI (attributes, drawUI, editor, eventHandler, mkLayerWidget)
 
 main :: IO ()
 main = do
@@ -38,7 +38,8 @@ main = do
   let startPlayback = SDL.setAudioDevicePlaybackState audioDevice SDL.Play
       stopPlayback = SDL.setAudioDevicePlaybackState audioDevice SDL.Pause
 
-  let app :: Brick.App JamState e Name
+
+      app :: Brick.App JamState e Name
       app = Brick.App { appDraw = drawUI
                       , appChooseCursor = Focus.focusRingCursor (^.jamStFocus)
                       , appHandleEvent = eventHandler
@@ -48,7 +49,7 @@ main = do
                           when ( Vty.supportsMode output Vty.Mouse ) $
                             liftIO $ Vty.setMode output Vty.Mouse True
                           pure s
-                      , appAttrMap = const $ Brick.attrMap Vty.defAttr []
+                      , appAttrMap = const attributes
                       }
 
       focusRing = Focus.focusRing
@@ -57,8 +58,7 @@ main = do
                       ) ++ [ TempoName ]
                     )
 
-      tempoField = Edit.editor TempoName ( Just 1 )
-                                         ( bpmToString tempo )
+      tempoField = editor TempoName ( bpmToString tempo )
 
       initState = JamState { _jamStLayersRef      = layerRef
                            , _jamStTempoRef       = tempoRef
