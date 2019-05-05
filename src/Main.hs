@@ -11,7 +11,6 @@ import Control.Lens
 
 import qualified SDL
 import qualified Brick as Brick
-import qualified Brick.Widgets.Edit as Edit
 import qualified Brick.Focus as Focus
 import qualified Graphics.Vty as Vty
 
@@ -30,7 +29,7 @@ main = do
   semaphore         <- newSemaphore
 
   SDL.initialize [SDL.InitAudio]
-  (audioDevice, audioSpec)
+  (audioDevice, _audioSpec)
     <- SDL.openAudioDevice
      $ openDeviceSpec
      $ audioCallback semaphore layerRef tempoRef elapsedSamplesRef
@@ -72,7 +71,7 @@ main = do
                            , _jamStStopPlayback   = stopPlayback
                            }
 
-  finalState <- Brick.defaultMain app initState :: IO JamState
+  _finalState <- Brick.defaultMain app initState :: IO JamState
 
   SDL.closeAudioDevice audioDevice
   SDL.quit

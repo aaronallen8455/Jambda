@@ -43,6 +43,7 @@ executables:
     ghc-options:
     - -threaded
     - -rtsopts
+    - -Wall
     - -Werror
     - -with-rtsopts=-N
 

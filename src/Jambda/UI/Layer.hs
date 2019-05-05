@@ -7,7 +7,7 @@ module Jambda.UI.Layer
   , handleLayerWidgetEvent
   ) where
 
-import Control.Lens
+import Control.Lens hiding (elements)
 
 import            Brick ((<+>), EventM, Widget, clickable, hLimitPercent, handleEventLensed, joinBorders, padAll, str, withBorderStyle)
 import qualified  Brick.Focus as Focus
@@ -29,9 +29,9 @@ mkLayerWidget id' layer =
     }
 
 renderLayerWidget :: JamState -> Int -> LayerWidget Name -> Widget Name
-renderLayerWidget st index LayerWidget{..} = joinBorders
+renderLayerWidget st ind LayerWidget{..} = joinBorders
                                      . withBorderStyle Border.unicode
-                                     . Border.borderWithLabel ( str $ "Layer " <> show ( succ index ) )
+                                     . Border.borderWithLabel ( str $ "Layer " <> show ( succ ind ) )
                                      $ padAll 1 elements
   where
     beatEditor = drawEditor "Beat" _layerWidgetCodeField

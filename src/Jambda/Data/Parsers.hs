@@ -6,7 +6,7 @@ module Jambda.Data.Parsers
   , parseOffset
   ) where
 
-import            Control.Lens
+import            Control.Lens hiding (simple)
 import            Control.Monad (guard)
 import            Control.Monad.Trans (lift)
 import            Control.Monad.Trans.State (execStateT)
@@ -91,14 +91,14 @@ expressionP = fmap ( uncurry (+) )
                 else mult ( 1 / num )
 
 cellValueP :: (Double -> Bool) -> Parser CellValue
-cellValueP pred = do
+cellValueP pred' = do
   v <- expressionP
-  guard $ pred v
+  guard $ pred' v
   pure $ CellValue v
 
 cellP :: (Double -> Bool) -> Parser Cell'
-cellP pred = do
-  v <- cellValueP pred
+cellP pred' = do
+  v <- cellValueP pred'
   p <- optional $ char '@' *> pitchP <* space
   pure $ Cell v p
 

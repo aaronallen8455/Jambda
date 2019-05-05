@@ -11,7 +11,6 @@ import            Jambda.Types.Newtypes (BPM)
 import            Jambda.Types.LayerWidget (LayerWidget)
 import            Jambda.Types.Name (Name)
 import            Jambda.UI.Editor (Editor)
-import qualified  Brick.Widgets.Edit as E
 import qualified  Brick.Focus as F
 
 data JamState =

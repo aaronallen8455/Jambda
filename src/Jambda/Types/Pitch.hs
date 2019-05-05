@@ -28,16 +28,17 @@ data Note
   deriving (Enum, Eq, Ord)
 
 instance Show Note where
-  show ANat = "A"
+  show ANat  = "A"
   show BFlat = "Bb"
-  show BNat = "B"
-  show CNat = "C"
+  show BNat  = "B"
+  show CNat  = "C"
   show DFlat = "Db"
-  show DNat = "D"
+  show DNat  = "D"
   show EFlat = "Eb"
-  show ENat = "E"
-  show FNat = "F"
+  show ENat  = "E"
+  show FNat  = "F"
   show GFlat = "Gb"
+  show GNat  = "G"
   show AFlat = "Ab"
 
 pitchToFreq :: Pitch -> Freq

@@ -3,13 +3,9 @@ module Jambda.UI.Events.Layer
   ) where
 
 import            Control.Monad.Trans (lift)
-import            Control.Monad.Trans.Maybe (MaybeT(..), runMaybeT)
 import            Control.Monad.IO.Class (liftIO)
-import            Control.Monad (join)
 import            Control.Lens
-import            Data.Maybe (isJust)
-import            Data.IORef (modifyIORef', readIORef, writeIORef)
-import qualified  Data.Stream.Infinite as Stream
+import            Data.IORef (modifyIORef')
 
 import qualified  Brick
 import qualified  Brick.Focus as Focus
@@ -20,7 +16,7 @@ import            Jambda.Types
 import            Jambda.Data (applyLayerBeatChange, applyLayerOffsetChange, applyLayerSourceChange)
 import            Jambda.UI.Draw (errorAttr)
 import            Jambda.UI.Layer (handleLayerWidgetEvent)
-import            Jambda.UI.Editor (getEditorContents, setEditorAttr)
+import            Jambda.UI.Editor (setEditorAttr)
 
 handler :: JambdaHandler
 handler = mouse

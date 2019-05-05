@@ -41,6 +41,8 @@ audioCallback semaphore layersRef bpmRef elapsedSamplesRef SDL.FloatingLEAudio v
   writeIORef layersRef newLayers
   modifyIORef' elapsedSamplesRef ( + fromIntegral numSamples )
 
+audioCallback _ _ _ _ _ _ = error "Unsupported audio sample type"
+
 aggregateChunks :: [[Sample]] -> [Sample]
 aggregateChunks = map sum . transpose
 

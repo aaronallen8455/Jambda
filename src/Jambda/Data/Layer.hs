@@ -1,6 +1,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE TypeApplications #-}
 module Jambda.Data.Layer
   ( newLayer
   , readChunk
@@ -13,7 +14,6 @@ module Jambda.Data.Layer
   ) where
 
 import            Control.Lens hiding ((:>))
-import            Control.Monad (guard)
 import            Control.Monad.Trans.Maybe (MaybeT(..), runMaybeT)
 import            Control.Monad.IO.Class (liftIO)
 import            Data.Stream.Infinite (Stream(..))
@@ -65,7 +65,7 @@ readChunk bufferSize bpm layer@Layer{..}
       Stream.take numPrefixSamples $ _layerSourcePrefix `Stream.prepend` silence
     (remLayer, newSamples) =
       getSamples bpm
-                 ( layer & layerBeat . ix 0 %~ fmap ( + remPrefixCell ) )
+                 ( layer & layerBeat %~ onHead ( fmap ( + remPrefixCell ) ) )
                  ( bufferSize - numPrefixSamples )
                  ( drop numPrefixSamples _layerSourcePrefix )
     samples = prefixSamples ++ newSamples
@@ -74,10 +74,10 @@ readChunk bufferSize bpm layer@Layer{..}
 -- returns the samples and the modified layer.
 getSamples :: BPM -> Layer -> Int -> [Sample] -> (Layer, [Sample])
 getSamples bpm layer nsamps prevSource
-  | nsamps <= wholeCellSamps = (newLayer, take nsamps source)
+  | nsamps <= wholeCellSamps = (newLayer', take nsamps source)
   | otherwise = _2 %~ ( take wholeCellSamps source ++ )
               $ getSamples bpm
-                           ( layer & layerBeat . ix 0 %~ fmap ( + leftover ) )
+                           ( layer & layerBeat %~ onHead ( fmap ( + leftover ) ) )
                            ( nsamps - wholeCellSamps )
                            ( drop wholeCellSamps source )
   where
@@ -92,9 +92,9 @@ getSamples bpm layer nsamps prevSource
     newCellPrefix = c^.cellValue
                   - numSamplesToCellValue bpm ( fromIntegral nsamps )
                   + leftover
-    newLayer = layer & layerBeat         .~ cells
-                     & layerCellPrefix   .~ newCellPrefix
-                     & layerSourcePrefix .~ (drop nsamps source)
+    newLayer' = layer & layerBeat         .~ cells
+                      & layerCellPrefix   .~ newCellPrefix
+                      & layerSourcePrefix .~ (drop nsamps source)
 
 -- | Modify the layer at a specific index
 modifyLayer :: JamState
@@ -109,7 +109,7 @@ modifyLayer st i modifier = signalSemaphore ( st^.jamStSemaphore ) $ do
                    $ fromRational elapsedSamples
 
   modifyIORef' ( st^.jamStLayersRef ) $ \layers ->
-    ( syncLayer elapsedCells ) <$> layers & ix i %~ modifier
+    syncLayer elapsedCells <$> ( layers & ix i %~ modifier )
 
 -- | Apply the current contents of the beat code editor for a layer.
 -- return true if the beat code is valid.
@@ -136,9 +136,9 @@ applyLayerOffsetChange st i = fmap isJust . runMaybeT $ do
   offsetCode <- hoistMaybe $ getEditorContents
             <$> st ^? jamStLayerWidgets.ix i . layerWidgetOffsetField
 
-  cellValue <- hoistMaybe $ parseOffset offsetCode
+  cellVal <- hoistMaybe $ parseOffset offsetCode
 
-  liftIO $ modifyLayer st i ( ( layerCellOffset .~ cellValue )
+  liftIO $ modifyLayer st i ( ( layerCellOffset .~ cellVal )
                             . ( layerOffsetCode .~ offsetCode )
                             )
 
@@ -169,7 +169,7 @@ syncLayer elapsedCells layer
     remainingElapsed       = elapsedCells - layer^.layerCellOffset
     cycleSize              = sum $ layer^.layerParsedCode^..traverse.cellValue
     elapsedCycles          = remainingElapsed / cycleSize
-    wholeCycles            = fromIntegral $ truncate elapsedCycles
+    wholeCycles            = fromIntegral @ Integer $ truncate elapsedCycles
     cellsToDrop            = remainingElapsed - wholeCycles * cycleSize
     cellCycle              = Stream.cycle $ layer^.layerParsedCode
     (cellPrefix, newCells) = dropCells cellsToDrop cellCycle
@@ -196,3 +196,6 @@ resetLayer layer =
 
 hoistMaybe :: Applicative m => Maybe a -> MaybeT m a
 hoistMaybe = MaybeT . pure
+
+onHead :: (a -> a) -> Stream a -> Stream a
+onHead f ( x :> xs ) = f x :> xs

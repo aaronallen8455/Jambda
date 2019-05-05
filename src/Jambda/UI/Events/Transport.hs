@@ -4,7 +4,6 @@ module Jambda.UI.Events.Transport
 
 import            Control.Monad.Trans (lift)
 import            Control.Monad.IO.Class (liftIO)
-import            Control.Monad (join)
 import            Control.Lens
 import            Data.Functor (void)
 import qualified  Data.IntMap as Map
@@ -94,19 +93,25 @@ mouse st ( Brick.MouseDown n _ _ _ ) =
         elapsedSamples <- readIORef ( st^.jamStElapsedSamples )
         tempo <- readIORef ( st^.jamStTempoRef )
 
-        let elapsedCells = numSamplesToCellValue tempo ( fromRational elapsedSamples )
+        let elapsedCells =
+              numSamplesToCellValue tempo
+                                    ( fromRational elapsedSamples )
             mbNewIx = succ . fst <$> Map.lookupMax ( st^.jamStLayerWidgets )
             newIx = maybe 0 id mbNewIx
-            layer = syncLayer elapsedCells . newLayer $ Pitch ANat 4 :: Layer
+            layer = newLayer $ Pitch ANat 4 :: Layer
             layerWidget = mkLayerWidget newIx layer
             st' = st & jamStLayerWidgets %~ ( at newIx ?~ layerWidget )
-                     & jamStFocus %~ Focus.focusRingModify
-                                       ( CList.insertR ( LayerName newIx BeatCodeName )
-                                       . CList.insertR ( LayerName newIx OffsetName )
-                                       . CList.insertR ( LayerName newIx NoteName )
-                                       )
+                     & jamStFocus
+                         %~ Focus.focusRingModify
+                              ( CList.insertR ( LayerName newIx BeatCodeName )
+                              . CList.insertR ( LayerName newIx OffsetName )
+                              . CList.insertR ( LayerName newIx NoteName )
+                              )
 
-        void $ modifyIORef' ( st^.jamStLayersRef ) ( at newIx ?~ layer )
+        void $ modifyIORef' ( st^.jamStLayersRef )
+                            ( fmap ( syncLayer elapsedCells )
+                            . ( at newIx ?~ layer )
+                            )
         pure st'
 
       continue st'

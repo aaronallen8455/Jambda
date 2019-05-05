@@ -26,15 +26,3 @@ data Layer =
 
 makeLenses ''Layer
 
-{- Lens related instances for Stream -}
-
-type instance IxValue (Stream a) = a
-
-type instance Index (Stream a) = Int
-
-instance Ixed (Stream a) where
-  ix k f xs0 | k < 0     = pure xs0
-             | otherwise = go xs0 k where
-    go (a :> as) 0 = f a <&> (:> as)
-    go (a :> as) i = (a :>) <$> (go as $! i - 1)
-  {-# INLINE ix #-}
