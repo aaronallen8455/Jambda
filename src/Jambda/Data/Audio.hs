@@ -19,7 +19,7 @@ import Jambda.Data.Layer (readChunk)
 audioCallback :: Semaphore
               -> IORef ( Map.IntMap Layer )
               -> IORef BPM
-              -> IORef Rational
+              -> IORef Double
               -> SDL.AudioFormat actualSampleType
               -> MV.IOVector actualSampleType
               -> IO ()
@@ -41,7 +41,8 @@ audioCallback semaphore layersRef bpmRef elapsedSamplesRef SDL.FloatingLEAudio v
   writeIORef layersRef newLayers
   modifyIORef' elapsedSamplesRef ( + fromIntegral numSamples )
 
-audioCallback _ _ _ _ _ _ = error "Unsupported audio sample type"
+audioCallback _ _ _ _ fmt _ =
+  error $ "Unsupported sample encoding: " <> show fmt
 
 aggregateChunks :: [[Sample]] -> [Sample]
 aggregateChunks = map sum . transpose

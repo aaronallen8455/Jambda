@@ -105,8 +105,7 @@ modifyLayer st i modifier = signalSemaphore ( st^.jamStSemaphore ) $ do
   elapsedSamples <- readIORef ( st^.jamStElapsedSamples )
   tempo <- readIORef ( st^.jamStTempoRef )
 
-  let elapsedCells = numSamplesToCellValue tempo
-                   $ fromRational elapsedSamples
+  let elapsedCells = numSamplesToCellValue tempo elapsedSamples
 
   modifyIORef' ( st^.jamStLayersRef ) $ \layers ->
     syncLayer elapsedCells <$> ( layers & ix i %~ modifier )

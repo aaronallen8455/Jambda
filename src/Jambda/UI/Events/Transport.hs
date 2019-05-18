@@ -94,8 +94,7 @@ mouse st ( Brick.MouseDown n _ _ _ ) =
         tempo <- readIORef ( st^.jamStTempoRef )
 
         let elapsedCells =
-              numSamplesToCellValue tempo
-                                    ( fromRational elapsedSamples )
+              numSamplesToCellValue tempo elapsedSamples
             mbNewIx = succ . fst <$> Map.lookupMax ( st^.jamStLayerWidgets )
             newIx = maybe 0 id mbNewIx
             layer = newLayer $ Pitch ANat 4 :: Layer

@@ -19,7 +19,7 @@ import            Jambda.UI.Layer (renderLayerWidget)
 import            Jambda.UI.Editor (renderEditor)
 
 drawUI :: JamState -> [Widget Name]
-drawUI st = [ui] where
+drawUI st = [ viewport Viewport Vertical $ vBox [ ui ] ] where
   layerEditors       = map ( uncurry $ renderLayerWidget st ) . zip [0..] $ Map.elems ( st^.jamStLayerWidgets )
   layerUI            = foldr (<=>) emptyWidget layerEditors
   drawEditor label f = withBorderStyle Border.unicode

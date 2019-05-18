@@ -23,10 +23,10 @@ numSamplesToCellValue bpm = secToCellValue bpm . numSampsToSecs
 
 cellValueToSecs :: BPM -> CellValue -> Sec
 cellValueToSecs (BPM bpm) (CellValue cell) = Sec $
-  fromRational ( 1 / ( bpm / 60 ) ) * cell
+  ( 1 / ( bpm / 60 ) ) * cell
 
 secToCellValue :: BPM -> Sec -> CellValue
-secToCellValue (BPM bpm) (Sec sec) = CellValue $ fromRational ( bpm / 60 ) * sec
+secToCellValue (BPM bpm) (Sec sec) = CellValue $ ( bpm / 60 ) * sec
 
 numSampsToSecs :: Double -> Sec
 numSampsToSecs nsamps = Sec $

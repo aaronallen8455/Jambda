@@ -21,7 +21,7 @@ data JamState =
     , _jamStLayerWidgets   :: !(M.IntMap (LayerWidget Name)) -- ^ Map of LayerWidgets
     , _jamStTempoField     :: !(Editor Name)        -- ^ The tempo input field
     , _jamStFocus          :: !(F.FocusRing Name)            -- ^ Manages which UI element has focus
-    , _jamStElapsedSamples :: !(IORef Rational)              -- ^ Number of samples that have elapsed during playback
+    , _jamStElapsedSamples :: !(IORef Double)              -- ^ Number of samples that have elapsed during playback
     , _jamStSemaphore      :: !Semaphore                     -- ^ Semaphore used to manage concurrency
     , _jamStStartPlayback  :: IO ()                          -- ^ Start playback
     , _jamStStopPlayback   :: IO ()                          -- ^ Stop playback

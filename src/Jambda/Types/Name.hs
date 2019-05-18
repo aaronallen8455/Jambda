@@ -9,6 +9,7 @@ data Name
   | PlayName
   | StopName
   | AddLayerName
+  | Viewport
   deriving (Eq, Ord, Show)
 
 data LayerFieldName

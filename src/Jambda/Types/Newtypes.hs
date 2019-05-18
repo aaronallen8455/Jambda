@@ -21,10 +21,10 @@ instance Show CellValue where
 
 newtype Freq = Freq { getFreq :: Double } deriving (Show, Eq, Ord, Num)
 
-newtype BPM = BPM { getBPM :: Rational } deriving (Show, Eq, Ord, Num, Enum, Fractional)
+newtype BPM = BPM { getBPM :: Double } deriving (Show, Eq, Ord, Num, Enum, Fractional)
 
 bpmToString :: BPM -> String
-bpmToString (BPM x) = printf "%.1f" $ fromRational @ Double x
+bpmToString (BPM x) = printf "%.1f" x
 
 newtype Sec = Sec { getSec :: Double } deriving (Show, Eq, Ord, Num)
 
