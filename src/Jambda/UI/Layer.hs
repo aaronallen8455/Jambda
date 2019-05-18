@@ -24,7 +24,7 @@ mkLayerWidget id' layer =
     { _layerWidgetId = id'
     , _layerWidgetCodeField = editor ( LayerName id' BeatCodeName ) ( layer^.layerCode )
     , _layerWidgetOffsetField = editor ( LayerName id' OffsetName ) ( layer^.layerOffsetCode )
-    , _layerWidgetSourceField = editor ( LayerName id' NoteName ) ( show $ layer^.layerSourceType )
+    , _layerWidgetSourceField = editor ( LayerName id' NoteName ) ( pitchStr $ layer^.layerSourceType )
     , _layerWidgetDelete = clickable ( LayerName id' DeleteName ) . padAll 1 $ str "[-X-]"
     }
 

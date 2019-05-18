@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: c95db1ceed3344e56d5954e7d8411691a2db5733776a689ec941e1c556f84cdf
+-- hash: 6aedbfb1619a8fab72d8cd06f990d6cb46422ecd1b8bdad15989ba36c266e341
 
 name:           Jambda
 version:        0.1.0.0
@@ -52,6 +52,7 @@ executable Jambda-exe
       Jambda.UI.Events.Base
       Jambda.UI.Events.Layer
       Jambda.UI.Events.Transport
+      Jambda.UI.Events.Viewport
       Jambda.UI.Layer
       Paths_Jambda
   hs-source-dirs:
@@ -67,6 +68,7 @@ executable Jambda-exe
     , lens
     , megaparsec
     , mtl
+    , random
     , sdl2
     , streams
     , text-zipper
@@ -93,6 +95,7 @@ test-suite Synth-test
     , lens
     , megaparsec
     , mtl
+    , random
     , sdl2
     , streams
     , text-zipper

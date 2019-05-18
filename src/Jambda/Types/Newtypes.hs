@@ -10,8 +10,9 @@ module Jambda.Types.Newtypes
   , bpmToString
   ) where
 
-import Foreign.Storable (Storable)
-import Text.Printf
+import            Foreign.Storable (Storable)
+import            Text.Printf
+import            System.Random (Random)
 
 newtype Sample = Sample { getSample :: Float } deriving (Show, Eq, Num, Ord, Storable, Enum)
 
@@ -28,4 +29,4 @@ bpmToString (BPM x) = printf "%.1f" x
 
 newtype Sec = Sec { getSec :: Double } deriving (Show, Eq, Ord, Num)
 
-newtype Octave = Octave { getOctave :: Int } deriving (Show, Eq, Ord, Num)
+newtype Octave = Octave { getOctave :: Int } deriving (Show, Eq, Ord, Num, Random)

@@ -9,6 +9,7 @@ import            Data.Functor (void)
 import qualified  Data.IntMap as Map
 import            Data.IORef (writeIORef, modifyIORef', readIORef)
 import qualified  Data.Text.Zipper as TextZipper
+import            System.Random
 
 import qualified  Data.CircularList as CList
 import qualified  Brick
@@ -92,12 +93,13 @@ mouse st ( Brick.MouseDown n _ _ _ ) =
       st' <- liftIO . signalSemaphore ( st^.jamStSemaphore ) $ do
         elapsedSamples <- readIORef ( st^.jamStElapsedSamples )
         tempo <- readIORef ( st^.jamStTempoRef )
+        newPitch <- randomIO :: IO Pitch
 
         let elapsedCells =
               numSamplesToCellValue tempo elapsedSamples
             mbNewIx = succ . fst <$> Map.lookupMax ( st^.jamStLayerWidgets )
             newIx = maybe 0 id mbNewIx
-            layer = newLayer $ Pitch ANat 4 :: Layer
+            layer = newLayer $ newPitch :: Layer
             layerWidget = mkLayerWidget newIx layer
             st' = st & jamStLayerWidgets %~ ( at newIx ?~ layerWidget )
                      & jamStFocus

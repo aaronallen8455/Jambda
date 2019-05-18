@@ -35,6 +35,7 @@ dependencies:
 - transformers
 - vector
 - vty
+- random
 
 executables:
   Jambda-exe:
