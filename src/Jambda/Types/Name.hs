@@ -10,6 +10,7 @@ data Name
   | StopName
   | AddLayerName
   | Viewport
+  | MasterVolumeName
   deriving (Eq, Ord, Show)
 
 data LayerFieldName

@@ -20,7 +20,8 @@ import            Jambda.UI.Editor (renderEditor)
 
 drawUI :: JamState -> [Widget Name]
 drawUI st = [ viewport Viewport Vertical $ vBox [ ui ] ] where
-  layerEditors       = map ( uncurry $ renderLayerWidget st ) . zip [0..] $ Map.elems ( st^.jamStLayerWidgets )
+  layerEditors       = map ( uncurry $ renderLayerWidget st )
+                     . zip [0..] $ Map.elems ( st^.jamStLayerWidgets )
   layerUI            = foldr (<=>) emptyWidget layerEditors
   drawEditor label f = withBorderStyle Border.unicode
                      . Border.borderWithLabel ( str label )
@@ -30,9 +31,15 @@ drawUI st = [ viewport Viewport Vertical $ vBox [ ui ] ] where
   tempoField     = hLimit 12 $ drawEditor "Tempo" $ st^.jamStTempoField
   playButton     = mkButton "Play" PlayName
   stopButton     = mkButton "Stop" StopName
+  volumeField    = hLimit 8 $ drawEditor "Vol." $ st^.jamStMasterVolField
   addLayerButton = mkButton "Add Layer" AddLayerName
-  ui           = layerUI
-             <=> ( tempoField <+> playButton <+> stopButton <+> addLayerButton )
+  ui             = layerUI
+               <=> ( tempoField
+                 <+> playButton
+                 <+> stopButton
+                 <+> addLayerButton
+                 <+> volumeField
+                   )
 
 mkButton :: String -> Name -> Widget Name
 mkButton label name

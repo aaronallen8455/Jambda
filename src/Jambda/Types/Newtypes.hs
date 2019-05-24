@@ -5,9 +5,11 @@ module Jambda.Types.Newtypes
   , CellValue(..)
   , Freq(..)
   , BPM(..)
+  , Vol(..)
   , Sec(..)
   , Octave(..)
   , bpmToString
+  , volToString
   ) where
 
 import            Foreign.Storable (Storable)
@@ -26,6 +28,11 @@ newtype BPM = BPM { getBPM :: Double } deriving (Show, Eq, Ord, Num, Enum, Fract
 
 bpmToString :: BPM -> String
 bpmToString (BPM x) = printf "%.1f" x
+
+newtype Vol = Vol { getVol :: Float } deriving (Show, Eq, Ord, Num, Fractional)
+
+volToString :: Vol -> String
+volToString (Vol x) = printf "%.1f" x
 
 newtype Sec = Sec { getSec :: Double } deriving (Show, Eq, Ord, Num)
 

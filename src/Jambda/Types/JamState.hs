@@ -7,7 +7,7 @@ import qualified  Data.IntMap as M
 
 import            Jambda.Types.Semaphore (Semaphore)
 import            Jambda.Types.Layer (Layer)
-import            Jambda.Types.Newtypes (BPM)
+import            Jambda.Types.Newtypes (BPM, Vol)
 import            Jambda.Types.LayerWidget (LayerWidget)
 import            Jambda.Types.Name (Name)
 import            Jambda.UI.Editor (Editor)
@@ -17,11 +17,12 @@ data JamState =
   JamState
     { _jamStLayersRef      :: !(IORef (M.IntMap Layer))      -- ^ A reference to a Map of all Layers
     , _jamStTempoRef       :: !(IORef BPM)                   -- ^ Holds reference to the tempo
-    , _jamStVolumeRef      :: !(IORef Double)                -- ^ Holds reference to the volume level
+    , _jamStVolumeRef      :: !(IORef Vol)                   -- ^ Holds reference to the volume level
     , _jamStLayerWidgets   :: !(M.IntMap (LayerWidget Name)) -- ^ Map of LayerWidgets
-    , _jamStTempoField     :: !(Editor Name)        -- ^ The tempo input field
+    , _jamStTempoField     :: !(Editor Name)                 -- ^ The tempo input field
+    , _jamStMasterVolField :: !(Editor Name)                 -- ^ The master volume field
     , _jamStFocus          :: !(F.FocusRing Name)            -- ^ Manages which UI element has focus
-    , _jamStElapsedSamples :: !(IORef Double)              -- ^ Number of samples that have elapsed during playback
+    , _jamStElapsedSamples :: !(IORef Double)                -- ^ Number of samples that have elapsed during playback
     , _jamStSemaphore      :: !Semaphore                     -- ^ Semaphore used to manage concurrency
     , _jamStStartPlayback  :: IO ()                          -- ^ Start playback
     , _jamStStopPlayback   :: IO ()                          -- ^ Stop playback

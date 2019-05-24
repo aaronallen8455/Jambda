@@ -17,7 +17,7 @@ import qualified  Brick.Focus as Focus
 import qualified  Graphics.Vty as Vty
 
 import            Jambda.Types
-import            Jambda.Data (newLayer, numSamplesToCellValue, parseBpm, resetLayer, syncLayer)
+import            Jambda.Data (newLayer, numSamplesToCellValue, parseBpm, parseVol, resetLayer, syncLayer)
 import            Jambda.UI.Layer (mkLayerWidget)
 import            Jambda.UI.Editor (applyEdit, getEditorContents, handleEditorEvent, setEditorAttr)
 import            Jambda.UI.Draw (errorAttr)
@@ -42,6 +42,21 @@ keystroke st ( Brick.VtyEvent ev )
                                     jamStTempoField
                                     handleEditorEvent
                                     ev
+  | Just MasterVolumeName <- focus =
+      case ev of
+        Vty.EvKey Vty.KUp [] -> modifyVol ( + 0.1 )
+
+        Vty.EvKey Vty.KDown [] -> modifyVol ( subtract 0.1 )
+
+        Vty.EvKey Vty.KEnter [] -> applyVolChange
+
+        _ ->
+          ( continue =<< ) . lift $
+            Brick.handleEventLensed st
+                                    jamStMasterVolField
+                                    handleEditorEvent
+                                    ev
+
   where
     focus = Focus.focusGetCurrent $ st^.jamStFocus
 
@@ -56,10 +71,10 @@ keystroke st ( Brick.VtyEvent ev )
         pure $ bpmToString newTempo
 
       let st' = st & jamStTempoField %~
-                     ( applyEdit
-                     . const $ TextZipper.stringZipper [ newTempoStr ]
-                                                       ( Just 1 )
-                     )
+                       ( applyEdit
+                       . const $ TextZipper.stringZipper [ newTempoStr ]
+                                                         ( Just 1 )
+                       )
       continue st'
 
     applyTempoChange = do
@@ -69,9 +84,32 @@ keystroke st ( Brick.VtyEvent ev )
       case mbTempo of
         Just tempo ->
           fmap ( jamStTempoField %~ setEditorAttr mempty )
-            <$> modifyTempo (const tempo)
+            <$> modifyTempo ( const tempo )
         Nothing ->
           continue $ st & jamStTempoField %~ setEditorAttr errorAttr
+
+    modifyVol f = do
+      currentVol <- liftIO . readIORef $ st^.jamStVolumeRef
+      let newVol = min 10 . max 0 $ f currentVol
+      liftIO $ writeIORef ( st^.jamStVolumeRef ) newVol
+      let newVolStr = volToString newVol
+          st' = st & jamStMasterVolField %~
+                       ( applyEdit
+                       . const $ TextZipper.stringZipper [ newVolStr ]
+                                                         ( Just 1 )
+                       )
+      continue st'
+
+    applyVolChange = do
+      let volStr = getEditorContents $ st^.jamStMasterVolField
+          mbVol = parseVol volStr
+
+      case mbVol of
+        Just vol ->
+          fmap ( jamStMasterVolField %~ setEditorAttr mempty )
+            <$> modifyVol ( const vol )
+        Nothing ->
+          continue $ st & jamStMasterVolField %~ setEditorAttr errorAttr
 
 keystroke _ _ = empty
 
@@ -119,6 +157,9 @@ mouse st ( Brick.MouseDown n _ _ _ ) =
 
     TempoName -> do
       continue $ st & jamStFocus %~ Focus.focusSetCurrent ( TempoName )
+
+    MasterVolumeName ->
+      continue $ st & jamStFocus %~ Focus.focusSetCurrent ( MasterVolumeName )
 
     _ -> empty
 

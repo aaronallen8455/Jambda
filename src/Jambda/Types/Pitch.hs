@@ -18,7 +18,7 @@ instance Random Pitch where
     let ( octave, g' ) = randomR (o1, o2) g
         ( pitch, g'' ) = first toEnum $ randomR ( fromEnum n1, fromEnum n2 ) g'
      in ( Pitch pitch octave, g'' )
-  random = randomR ( Pitch ANat 3, Pitch AFlat 6 )
+  random = randomR ( Pitch ANat 3, Pitch AFlat 5 )
 
 data Note
   = ANat

@@ -1,6 +1,7 @@
 module Jambda.Data.Parsers
   ( parseBeat
   , parseBpm
+  , parseVol
   , parseCell
   , parsePitch
   , parseOffset
@@ -17,6 +18,7 @@ import qualified  Data.List.NonEmpty as NonEmpty
 import            Data.Semigroup (sconcat)
 import            Data.Void (Void)
 import            GHC.Exts (IsList(..))
+import            GHC.Float (double2Float)
 import            Text.Megaparsec
 import            Text.Megaparsec.Char
 
@@ -36,6 +38,9 @@ parseOffset = parseMaybe ( cellValueP ( >= 0 ) )
 parseBpm :: String -> Maybe BPM
 parseBpm = parseMaybe bpmP
 
+parseVol :: String -> Maybe Vol
+parseVol = parseMaybe volP
+
 parsePitch :: String -> Maybe Pitch
 parsePitch = parseMaybe pitchP
 
@@ -44,6 +49,12 @@ bpmP = do
   v <- doubleP
   guard $ v > 0
   pure $ BPM v
+
+volP :: Parser Vol
+volP = do
+  v <- double2Float <$> doubleP
+  guard $ v >= 0 && v <= 10
+  pure $ Vol v
 
 doubleP :: Parser Double
 doubleP = read <$> ( try mixedP <|> fmap ('0':) fracP )

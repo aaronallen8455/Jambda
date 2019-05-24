@@ -22,9 +22,10 @@ main :: IO ()
 main = do
   let layers = Map.singleton 0 ( newLayer $ Pitch ANat 4 )
       tempo = 120
+      vol = 10
   layerRef          <- newIORef layers
   tempoRef          <- newIORef tempo
-  volumeRef         <- newIORef 1
+  volumeRef         <- newIORef vol
   elapsedSamplesRef <- newIORef 0
   semaphore         <- newSemaphore
 
@@ -32,7 +33,7 @@ main = do
   (audioDevice, _audioSpec)
     <- SDL.openAudioDevice
      $ openDeviceSpec
-     $ audioCallback semaphore layerRef tempoRef elapsedSamplesRef
+     $ audioCallback semaphore layerRef tempoRef elapsedSamplesRef volumeRef
 
   let startPlayback = SDL.setAudioDevicePlaybackState audioDevice SDL.Play
       stopPlayback = SDL.setAudioDevicePlaybackState audioDevice SDL.Pause
@@ -54,15 +55,17 @@ main = do
       focusRing = Focus.focusRing
                     ( ( LayerName <$> [ 0 .. length layers - 1 ]
                                   <*> [ BeatCodeName, OffsetName, NoteName ]
-                      ) ++ [ TempoName ]
+                      ) ++ [ TempoName, MasterVolumeName ]
                     )
 
       tempoField = editor TempoName ( bpmToString tempo )
+      volumeField = editor MasterVolumeName ( volToString vol )
 
       initState = JamState { _jamStLayersRef      = layerRef
                            , _jamStTempoRef       = tempoRef
                            , _jamStVolumeRef      = volumeRef
                            , _jamStTempoField     = tempoField
+                           , _jamStMasterVolField = volumeField
                            , _jamStLayerWidgets   = imap mkLayerWidget layers
                            , _jamStFocus          = focusRing
                            , _jamStElapsedSamples = elapsedSamplesRef
