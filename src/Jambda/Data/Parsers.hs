@@ -116,9 +116,9 @@ cellP pred' = do
 
 refP :: Int -> M.IntMap String -> Parser (Maybe (NonEmpty Cell'))
 refP idx refMap = do
-  refIdx <- char '$' *> ( intP <|> ( ( idx + 1 ) <$ char 's' ) )
-  guard $ refIdx > 0
-  case M.lookup ( refIdx + 1 ) refMap of
+  refIdx <- char '$' *> ( ( pred <$> intP ) <|> ( idx <$ char' 's' ) )
+  guard $ refIdx >= 0
+  case M.lookup refIdx refMap of
     Nothing -> pure Nothing
     Just refStr ->
       maybe ( fail "reference failed to parse" )

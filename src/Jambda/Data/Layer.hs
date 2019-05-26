@@ -19,6 +19,7 @@ import            Control.Monad.IO.Class (liftIO)
 import            Data.Stream.Infinite (Stream(..))
 import qualified  Data.Stream.Infinite as Stream
 import            Data.IORef (readIORef, modifyIORef')
+import qualified  Data.IntMap as M
 import            Data.Maybe (isJust)
 
 import            Jambda.Data.Constants (taperLength)
@@ -96,31 +97,25 @@ getSamples bpm layer nsamps prevSource
                       & layerCellPrefix   .~ newCellPrefix
                       & layerSourcePrefix .~ (drop nsamps source)
 
---modifylayers :: JamStat
---             -> (Layer -> Layer)
---             -> IO ()
---modifyLayers st modifier = signalSemaphore ( st^.jamStSemaphore ) $ do
---  elapsedSamples <- readIORef ( st^.jamStElapsedSamples )
---  tempo <- readIORef ( st^.jamStTempoRef )
---
---  let elapsedCells = numSamplesToCellValue tempo elapsedSamples
---
---  modifyIORef' ( st^.jamStLayersRef ) $ \layers ->
---    syncLayer elapsedCells <$> ( layers & ix i %~ modifier )
-
--- | Modify the layer at a specific index
-modifyLayer :: JamState
-            -> Int
-            -> (Layer -> Layer)
-            -> IO ()
-modifyLayer st i modifier = signalSemaphore ( st^.jamStSemaphore ) $ do
+-- | Modifies the entire layer map, syncing to the elasped samples.
+modifyLayers :: JamState
+             -> (M.IntMap Layer -> M.IntMap Layer)
+             -> IO ()
+modifyLayers st modifier = signalSemaphore ( st^.jamStSemaphore ) $ do
   elapsedSamples <- readIORef ( st^.jamStElapsedSamples )
   tempo <- readIORef ( st^.jamStTempoRef )
 
   let elapsedCells = numSamplesToCellValue tempo elapsedSamples
 
   modifyIORef' ( st^.jamStLayersRef ) $ \layers ->
-    syncLayer elapsedCells <$> ( layers & ix i %~ modifier )
+    syncLayer elapsedCells <$> modifier layers
+
+-- | Modify the layer at a specific index. Syncs all layers with the current elapsed samples.
+modifyLayer :: JamState
+            -> Int
+            -> (Layer -> Layer)
+            -> IO ()
+modifyLayer st i modifier = modifyLayers st ( ix i %~ modifier )
 
 -- | Apply the current contents of the beat code editor for a layer.
 -- return true if the beat code is valid.
@@ -131,16 +126,28 @@ applyLayerBeatChange st i = fmap isJust . runMaybeT $ do
   beatCode <- hoistMaybe $ getEditorContents
           <$> st ^? jamStLayerWidgets.ix i . layerWidgetCodeField
 
-  let allCodes = fmap ( getEditorContents . _layerWidgetCodeField ) ( st^.jamStLayerWidgets )
+  let allCodes = M.insert i beatCode
+               $ fmap ( getEditorContents . _layerWidgetCodeField )
+                      ( st^.jamStLayerWidgets )
 
-  cells <- hoistMaybe $ parseBeat i allCodes beatCode
- -- allParsedCells <- sequence $ M.mapWithKey ( \i -> hoistMaybe . parseBeat i allCodes ) allCodes
+  -- We parse all the layers here to avoid having to maintain a graph of layer
+  -- inter-dependencies which would be more performant but result in greater code complexity.
+  allParsedCells
+    <- sequence $ M.mapWithKey ( \idx -> hoistMaybe . parseBeat idx allCodes )
+                               allCodes
 
-  -- TODO reparse all layers here?
-  liftIO $ modifyLayer st i ( ( layerBeat .~ Stream.cycle cells )
-                            . ( layerCode .~ beatCode )
-                            . ( layerParsedCode .~ cells )
-                            )
+  let updateLayer k newCells = Just
+                             . ( layerBeat .~ Stream.cycle newCells )
+                             . ( layerParsedCode .~ newCells )
+                             . if k == i
+                                  then ( layerCode .~ beatCode )
+                                  else id
+
+  liftIO . modifyLayers st $
+    M.mergeWithKey updateLayer
+                   ( const mempty )
+                   ( const mempty )
+                   allParsedCells
 
 -- | Apply the current contents of the offset field of a layer
 -- returns true if beat code is valid.
