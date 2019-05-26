@@ -8,13 +8,14 @@ module Jambda.Data.Parsers
   ) where
 
 import            Control.Lens hiding (simple)
-import            Control.Monad (guard)
+import            Control.Monad (guard, join)
 import            Control.Monad.Trans (lift)
 import            Control.Monad.Trans.State (execStateT)
 import            Data.Foldable (for_)
 import            Data.Functor (($>))
 import            Data.List.NonEmpty (NonEmpty(..))
 import qualified  Data.List.NonEmpty as NonEmpty
+import qualified  Data.IntMap as M
 import            Data.Semigroup (sconcat)
 import            Data.Void (Void)
 import            GHC.Exts (IsList(..))
@@ -26,8 +27,8 @@ import            Jambda.Types
 
 type Parser = Parsec Void String
 
-parseBeat :: String -> Maybe (NonEmpty Cell')
-parseBeat = parseMaybe ( beatP <* eof )
+parseBeat :: Int -> M.IntMap String -> String -> Maybe (NonEmpty Cell')
+parseBeat idx refMap = join . parseMaybe ( beatP idx refMap <* eof )
 
 parseCell :: String -> Maybe Cell'
 parseCell = parseMaybe ( cellP ( > 0 ) )
@@ -113,30 +114,54 @@ cellP pred' = do
   p <- optional $ char '@' *> pitchP <* space
   pure $ Cell v p
 
-repCellP :: Parser (NonEmpty Cell')
-repCellP = nonEmptyGuard $ do
-  cell <- cellP ( > 0 ) <* space
-  guard $ cell^.cellValue > 0
-  ( reps, ltm ) <- fmap ( maybe ( 1, 0 ) id ) . optional $ do
-    reps <- between ( char '(' <* space )
-                    ( char ')' <* space )
-                    intP
-    ltm <- maybe 0 id <$> optional expressionP <* space
-    pure ( reps, CellValue ltm )
-  guard $ reps > 0 && cell^.cellValue > 0 && cell^.cellValue + ltm > 0
-  pure . reverse $ fmap ( + ltm ) cell : replicate ( reps - 1 ) cell
+refP :: Int -> M.IntMap String -> Parser (Maybe (NonEmpty Cell'))
+refP idx refMap = do
+  refIdx <- char '$' *> ( intP <|> ( ( idx + 1 ) <$ char 's' ) )
+  guard $ refIdx > 0
+  case M.lookup ( refIdx + 1 ) refMap of
+    Nothing -> pure Nothing
+    Just refStr ->
+      maybe ( fail "reference failed to parse" )
+            ( pure . Just )
+            ( parseBeat idx ( M.delete refIdx refMap ) refStr )
 
-blockRepP :: Parser (NonEmpty Cell')
-blockRepP = do
-    inner <- between ( char '[' <* space )
-                     ( char ']' <* space )
-                     beatP
+repableP :: Int -> M.IntMap String -> Parser (Maybe (NonEmpty Cell'))
+repableP idx refMap = try ( refP idx refMap )
+                  <|> ( Just . pure <$> cellP ( > 0 ) )
+
+repCellP :: Int -> M.IntMap String -> Parser (Maybe (NonEmpty Cell'))
+repCellP idx refMap = do
+  mbCells <- repableP idx refMap <* space :: Parser (Maybe (NonEmpty Cell'))
+  case mbCells of
+    Nothing -> pure Nothing
+    Just cells -> do
+      ( reps, ltm ) <- fmap ( maybe ( 1, 0 ) id ) . optional $ do
+        reps <- between ( char '(' <* space )
+                        ( char ')' <* space )
+                        intP
+        ltm <- maybe 0 id <$> optional expressionP <* space
+        pure ( reps, CellValue ltm )
+      let ( lastCell :| rest ) = NonEmpty.reverse cells
+      guard $ reps > 0 && lastCell^.cellValue + ltm > 0
+      pure . Just . sconcat . NonEmpty.fromList
+           . reverse $ ( NonEmpty.reverse $ fmap ( + ltm ) lastCell :| rest )
+                     : replicate ( reps - 1 ) cells
+
+blockRepP :: Int -> M.IntMap String -> Parser (Maybe (NonEmpty Cell'))
+blockRepP idx refMap = do
+    mbInner <- between ( char '[' <* space )
+                       ( char ']' <* space )
+                       ( beatP idx refMap )
     (reps, ltm) <- tagP <* space
-    let ( lastCell :| rest ) = NonEmpty.reverse inner
-    guard $ reps > 0 && ltm > 0
-    pure . sconcat . NonEmpty.reverse
-          $ ( NonEmpty.reverse $ fmap ( + ltm ) lastCell :| rest )
-         :| ( replicate ( reps - 1 ) inner )
+
+    case mbInner of
+      Nothing -> pure Nothing
+      Just inner -> do
+        let ( lastCell :| rest ) = NonEmpty.reverse inner
+        guard $ reps > 0 && lastCell^.cellValue + ltm > 0
+        pure . Just . sconcat . NonEmpty.reverse
+              $ ( NonEmpty.reverse $ fmap ( + ltm ) lastCell :| rest )
+             :| ( replicate ( reps - 1 ) inner )
   where
     tagP = try simple <|> complex
     simple = (,) <$> intP <*> pure ( CellValue 0 )
@@ -147,20 +172,20 @@ blockRepP = do
       ltm <- expressionP
       pure (reps, CellValue ltm)
 
-blockMultP :: Parser (NonEmpty Cell')
-blockMultP = do
-  inner <- between ( char '{' <* space )
-                   ( char '}' <* space )
-                   beatP
+blockMultP :: Int -> M.IntMap String -> Parser (Maybe (NonEmpty Cell'))
+blockMultP idx refMap = do
+  mbInner <- between ( char '{' <* space )
+                     ( char '}' <* space )
+                     ( beatP idx refMap )
   factor <- CellValue <$> expressionP
   guard $ factor > 0
-  pure $ ( fmap . fmap ) ( * factor ) inner
+  pure $ ( fmap . fmap . fmap ) ( * factor ) mbInner
 
-beatP :: Parser (NonEmpty Cell')
-beatP = fmap sconcat . nonEmptyGuard
-      $ space *> (   try repCellP
-                 <|> try blockRepP
-                 <|> blockMultP
+beatP :: Int -> M.IntMap String -> Parser (Maybe (NonEmpty Cell'))
+beatP idx refMap = fmap sconcat . nonEmptyGuard
+      $ space *> (   try ( repCellP idx refMap )
+                 <|> try ( blockRepP idx refMap )
+                 <|> blockMultP idx refMap
                  ) `sepBy1` ( char ',' <* space )
 
 nonEmptyGuard :: Parser [a] -> Parser (NonEmpty a)

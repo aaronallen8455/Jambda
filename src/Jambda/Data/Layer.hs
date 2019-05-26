@@ -96,6 +96,18 @@ getSamples bpm layer nsamps prevSource
                       & layerCellPrefix   .~ newCellPrefix
                       & layerSourcePrefix .~ (drop nsamps source)
 
+--modifylayers :: JamStat
+--             -> (Layer -> Layer)
+--             -> IO ()
+--modifyLayers st modifier = signalSemaphore ( st^.jamStSemaphore ) $ do
+--  elapsedSamples <- readIORef ( st^.jamStElapsedSamples )
+--  tempo <- readIORef ( st^.jamStTempoRef )
+--
+--  let elapsedCells = numSamplesToCellValue tempo elapsedSamples
+--
+--  modifyIORef' ( st^.jamStLayersRef ) $ \layers ->
+--    syncLayer elapsedCells <$> ( layers & ix i %~ modifier )
+
 -- | Modify the layer at a specific index
 modifyLayer :: JamState
             -> Int
@@ -119,8 +131,12 @@ applyLayerBeatChange st i = fmap isJust . runMaybeT $ do
   beatCode <- hoistMaybe $ getEditorContents
           <$> st ^? jamStLayerWidgets.ix i . layerWidgetCodeField
 
-  cells <- hoistMaybe $ parseBeat beatCode
+  let allCodes = fmap ( getEditorContents . _layerWidgetCodeField ) ( st^.jamStLayerWidgets )
 
+  cells <- hoistMaybe $ parseBeat i allCodes beatCode
+ -- allParsedCells <- sequence $ M.mapWithKey ( \i -> hoistMaybe . parseBeat i allCodes ) allCodes
+
+  -- TODO reparse all layers here?
   liftIO $ modifyLayer st i ( ( layerBeat .~ Stream.cycle cells )
                             . ( layerCode .~ beatCode )
                             . ( layerParsedCode .~ cells )
