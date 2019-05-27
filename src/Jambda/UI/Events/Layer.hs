@@ -1,8 +1,9 @@
+{-# LANGUAGE RankNTypes #-}
 module Jambda.UI.Events.Layer
   ( handler
   ) where
 
-import            Control.Monad.Trans (lift)
+import            Control.Monad.Trans (MonadTrans, lift)
 import            Control.Monad.IO.Class (liftIO)
 import            Control.Lens
 import            Data.IORef (modifyIORef')
@@ -14,12 +15,14 @@ import qualified  Graphics.Vty as Vty
 
 import            Jambda.Types
 import            Jambda.Data (applyLayerBeatChange, applyLayerOffsetChange, applyLayerSourceChange)
-import            Jambda.UI.Draw (errorAttr)
+import            Jambda.UI.Draw (editedAttr, errorAttr)
 import            Jambda.UI.Layer (handleLayerWidgetEvent)
-import            Jambda.UI.Editor (setEditorAttr)
+import            Jambda.UI.Editor (Editor, setEditorAttr)
 
 handler :: JambdaHandler
 handler = mouse
+      >|< applyEditorChanges
+      >|< editorFieldEdited
       >|< keystroke
 
 mouse :: JambdaHandler
@@ -41,8 +44,8 @@ mouse st ( Brick.MouseDown ( LayerName i f ) _ _ _ ) =
 
 mouse _ _ = empty
 
-keystroke :: JambdaHandler
-keystroke st ( Brick.VtyEvent ( Vty.EvKey Vty.KEnter [] ) )
+applyEditorChanges :: JambdaHandler
+applyEditorChanges st ( Brick.VtyEvent ( Vty.EvKey Vty.KEnter [] ) )
   | Just ( LayerName i BeatCodeName ) <- focus = do
       isValid <- liftIO $ applyLayerBeatChange st i
 
@@ -66,15 +69,49 @@ keystroke st ( Brick.VtyEvent ( Vty.EvKey Vty.KEnter [] ) )
   where
     focus = Focus.focusGetCurrent $ st^.jamStFocus
 
+applyEditorChanges _ _ = empty
+
+editorFieldEdited :: JambdaHandler
+editorFieldEdited st ( Brick.VtyEvent ev@( Vty.EvKey key _ ) )
+  | notKey key = empty
+  | Just ( LayerName n BeatCodeName ) <- focus =
+    let st' = setEdited layerWidgetCodeField n st
+     in handleLensed st' n BeatCodeName ev
+  | Just ( LayerName n OffsetName ) <- focus =
+    let st' = setEdited layerWidgetOffsetField n st
+     in handleLensed st' n OffsetName ev
+  | Just ( LayerName n NoteName ) <- focus =
+    let st' = setEdited layerWidgetSourceField n st
+     in handleLensed st' n NoteName ev
+  where
+    focus = Focus.focusGetCurrent $ st^.jamStFocus
+    notKey ( Vty.KChar _ ) = False
+    notKey Vty.KBS = False
+    notKey Vty.KDel = False
+    notKey _ = True
+
+editorFieldEdited _ _ = empty
+
+keystroke :: JambdaHandler
 keystroke st ( Brick.VtyEvent ev )
   | Just ( LayerName n field ) <- focus =
-      ( continue =<< ) . lift $
-        Brick.handleEventLensed st
-                                ( jamStLayerWidgets . at n )
-                                ( handleLayerWidgetEvent field )
-                                ev
+      handleLensed st n field ev
   where
     focus = Focus.focusGetCurrent $ st^.jamStFocus
 
 keystroke _ _ = empty
 
+setEdited :: Lens' (LayerWidget Name) (Editor Name)
+          -> Int -> JamState -> JamState
+setEdited l n = jamStLayerWidgets.ix n . l
+                  %~ setEditorAttr editedAttr
+
+handleLensed :: (MonadTrans m, Monad (m (Brick.EventM Name)))
+             => JamState -> Int -> LayerFieldName -> Vty.Event
+             -> m (Brick.EventM Name) (Brick.Next JamState)
+handleLensed st n field ev =
+   ( continue =<< ) . lift $
+     Brick.handleEventLensed st
+                             ( jamStLayerWidgets . at n )
+                             ( handleLayerWidgetEvent field )
+                             ev

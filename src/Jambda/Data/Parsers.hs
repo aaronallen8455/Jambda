@@ -181,6 +181,10 @@ blockMultP idx refMap = do
   guard $ factor > 0
   pure $ ( fmap . fmap . fmap ) ( * factor ) mbInner
 
+-- The return value is a Maybe because if a layer reference cannot be resolved
+-- due to it occuring recursively, we want to delete that cell without the
+-- parser failing. The Semigroup instance of Maybe NonEmpty facilitates this;
+-- the Nothing case only occurs in the event of a rejected reference key
 beatP :: Int -> M.IntMap String -> Parser (Maybe (NonEmpty Cell'))
 beatP idx refMap = fmap sconcat . nonEmptyGuard
       $ space *> (   try ( repCellP idx refMap )

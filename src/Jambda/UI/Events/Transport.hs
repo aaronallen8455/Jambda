@@ -79,9 +79,8 @@ keystroke st ( Brick.VtyEvent ev )
 
     applyTempoChange = do
       let tempoStr = getEditorContents $ st^.jamStTempoField
-          mbTempo = parseBpm tempoStr
 
-      case mbTempo of
+      case parseBpm tempoStr of
         Just tempo ->
           fmap ( jamStTempoField %~ setEditorAttr mempty )
             <$> modifyTempo ( const tempo )

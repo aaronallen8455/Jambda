@@ -2,6 +2,7 @@
 module Jambda.UI.Draw
   ( drawUI
   , errorAttr
+  , editedAttr
   , attributes
   ) where
 
@@ -52,5 +53,10 @@ mkButton label name
 errorAttr :: AttrName
 errorAttr = Brick.attrName "error"
 
+editedAttr :: AttrName
+editedAttr = Brick.attrName "edited"
+
 attributes :: AttrMap
-attributes = Brick.attrMap Vty.defAttr [ ( errorAttr, Brick.bg Vty.red ) ]
+attributes = Brick.attrMap Vty.defAttr [ ( errorAttr, Brick.bg Vty.red )
+                                       , ( editedAttr, Brick.bg Vty.brightBlack )
+                                       ]
